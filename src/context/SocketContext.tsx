@@ -9,6 +9,7 @@ export interface Player {
   isHost: boolean;
   isBot?: boolean;
   connected: boolean;
+  eliminated?: boolean;
   hasSubmittedHint: boolean;
   hint: string | null;
   hasVoted: boolean;
@@ -19,6 +20,8 @@ export interface RoomState {
   roomCode: string;
   status: 'LOBBY' | 'ROLE_REVEAL' | 'HINT_PHASE' | 'SHOWCASE' | 'VOTING' | 'EJECTION' | 'GUESS_PHASE' | 'GAME_OVER';
   hostId: string;
+  round?: number;
+  maxRounds?: number;
   category: string | null;
   secretWord: string | null;
   players: Player[];
@@ -26,6 +29,7 @@ export interface RoomState {
   ejectedPlayer: { id: string; name: string; avatar: string; role: string } | null;
   winner: 'CREWMATES' | 'IMPOSTOR' | null;
   impostorGuessedCorrectly: boolean | null;
+  voteCounts?: Record<string, number> | null;
 }
 
 export interface MyRoleInfo {
@@ -44,7 +48,7 @@ interface SocketContextType {
   impostorOptions: string[];
   errorMessage: string | null;
   createRoom: () => void;
-  addBots: () => void;
+  addBots: (count?: number) => void;
   joinRoom: (roomCode: string, name: string, avatar: string, color: string, token?: string) => void;
   startGame: () => void;
   submitHint: (hint: string) => void;
@@ -197,8 +201,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (socket) socket.emit('create_room');
   };
 
-  const addBots = () => {
-    if (socket) socket.emit('add_bots');
+  const addBots = (count?: number) => {
+    if (socket) socket.emit('add_bots', { count: count ?? 3 });
   };
 
   const joinRoom = (roomCode: string, name: string, avatar: string, color: string, token?: string) => {
