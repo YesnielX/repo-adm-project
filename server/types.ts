@@ -24,7 +24,21 @@ export type WordCategory =
   | 'Metodologías Ágiles'
   | 'Desarrollo & Git'
   | 'Arquitectura & Cloud'
-  | 'Conceptos de Gestión';
+  | 'Conceptos de Gestión'
+  | 'Pruebas & Calidad'
+  | 'Lenguajes de Programación'
+  | 'Frameworks & Librerías'
+  | 'Bases de Datos'
+  | 'Redes & Protocolos'
+  | 'Seguridad Informática'
+  | 'Herramientas & Productividad'
+  | 'Diseño UX/UI'
+  | 'Modelado & Diagramas'
+  | 'DevOps & Automatización'
+  | 'Inteligencia Artificial'
+  | 'Sistemas Operativos'
+  | 'Comunicación & Equipos'
+  | 'Metodologías de Desarrollo';
 
 export interface SecretWord {
   category: WordCategory;
