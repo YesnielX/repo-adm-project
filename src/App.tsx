@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import gsap from 'gsap';
-import { Tv, Smartphone, ShieldAlert, Wifi, Bot, Zap } from 'lucide-react';
+import { ShieldAlert, Tv, Smartphone } from 'lucide-react';
 import { SocketProvider, useGameSocket } from './context/SocketContext';
 import { HostView } from './components/HostView';
 import { PlayerView } from './components/PlayerView';
@@ -8,14 +8,14 @@ import { PlayerView } from './components/PlayerView';
 const MainApp: React.FC = () => {
   const { roomState, createRoom } = useGameSocket();
   const [mode, setMode] = useState<'SELECT' | 'HOST' | 'PLAYER'>('SELECT');
-  const cardRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (cardRef.current) {
+    if (heroRef.current) {
       gsap.fromTo(
-        cardRef.current,
-        { opacity: 0, scale: 0.92, y: 30 },
-        { opacity: 1, scale: 1, y: 0, duration: 0.6, ease: 'back.out(1.4)' }
+        heroRef.current,
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out', delay: 0.1 }
       );
     }
   }, []);
@@ -43,50 +43,80 @@ const MainApp: React.FC = () => {
   };
 
   return (
-    <div className="app-container">
+    <div className="flex min-h-screen flex-col">
       {mode === 'SELECT' && !roomState && (
-        <div className="landing-screen">
-          <div className="landing-card" ref={cardRef}>
-            <div className="landing-logo-wrapper">
-              <div className="logo-glow-ring">
-                <ShieldAlert className="landing-logo text-purple" size={54} />
-              </div>
+        <>
+          <header className="flex items-center justify-between px-6 pt-6 sm:px-10">
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert size={22} className="text-cyber-purple" />
+              <span className="font-display text-sm font-bold tracking-[3px]">CODE IMPOSTOR</span>
             </div>
+            <span className="hidden text-xs text-muted sm:block">
+              Se juega en la red del aula, sin internet
+            </span>
+          </header>
 
-            <h1 className="landing-title">CODE IMPOSTOR</h1>
-            <p className="landing-subtitle">
-              Juego Multijugador en Tiempo Real de Deducción Social para la Clase de Administración de Proyectos
+          <main className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-10" ref={heroRef}>
+            <h1 className="font-display text-[44px] font-black leading-[0.95] tracking-tight sm:text-6xl">
+              Encuentra
+              <br />
+              al <span className="text-cyber-cyan">impostor</span>.
+            </h1>
+
+            <p className="mt-5 max-w-md text-[15px] leading-relaxed text-muted">
+              Todos reciben una palabra secreta menos uno. Escriban una pista,
+              voten y descubran quién está mintiendo.
             </p>
 
-            <div className="feature-pills">
-              <span className="pill"><Wifi size={13} /> Wi-Fi Local (Sin Internet)</span>
-              <span className="pill"><Bot size={13} /> Bots Simulados</span>
-              <span className="pill"><Zap size={13} /> 100% Real-time</span>
-            </div>
-
-            <div className="mode-options">
-              <button type="button" className="mode-btn host-btn" onClick={handleStartHost}>
-                <div className="btn-icon-wrapper host-icon">
-                  <Tv size={26} className="text-cyan" />
+            <div className="mt-10 grid gap-4 sm:max-w-xl sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleStartHost}
+                className="flex flex-col gap-3 rounded-2xl border border-cyan-400/25 bg-cyan-400/5 p-5 text-left transition hover:-translate-y-1 hover:border-cyber-cyan hover:bg-cyan-400/10 hover:shadow-[0_12px_30px_rgba(0,242,254,0.15)]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-400/25 bg-cyan-400/10 text-cyber-cyan">
+                    <Tv size={22} />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[2px] text-cyber-cyan/70">
+                    01 · Host
+                  </span>
                 </div>
-                <div className="btn-text">
-                  <strong>MODO PROYECTOR (HOST)</strong>
-                  <small>Para proyectar en la pantalla principal de la clase</small>
-                </div>
-              </button>
-
-              <button type="button" className="mode-btn player-btn" onClick={handleStartPlayer}>
-                <div className="btn-icon-wrapper player-icon">
-                  <Smartphone size={26} className="text-purple" />
-                </div>
-                <div className="btn-text">
-                  <strong>MODO JUGADOR (MÓVIL)</strong>
-                  <small>Para unirte a una partida desde tu smartphone</small>
+                <div>
+                  <strong className="block text-lg text-white">Soy el proyector</strong>
+                  <span className="mt-1 block text-sm leading-relaxed text-muted">
+                    Muestra el tablero y el QR en la pantalla grande de la clase.
+                  </span>
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={handleStartPlayer}
+                className="flex flex-col gap-3 rounded-2xl border border-purple-500/25 bg-purple-500/5 p-5 text-left transition hover:-translate-y-1 hover:border-cyber-purple hover:bg-purple-500/10 hover:shadow-[0_12px_30px_rgba(170,59,255,0.2)]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-purple-500/25 bg-purple-500/10 text-cyber-purple">
+                    <Smartphone size={22} />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[2px] text-cyber-purple/70">
+                    02 · Jugador
+                  </span>
+                </div>
+                <div>
+                  <strong className="block text-lg text-white">Soy un jugador</strong>
+                  <span className="mt-1 block text-sm leading-relaxed text-muted">
+                    Entra desde tu teléfono escaneando el QR del proyector.
+                  </span>
+                </div>
+              </button>
             </div>
-          </div>
-        </div>
+
+            <p className="mt-8 text-xs leading-relaxed text-muted">
+              Sin instalar nada · Con bots de práctica · Hasta 5 rondas
+            </p>
+          </main>
+        </>
       )}
 
       {mode === 'HOST' && <HostView />}

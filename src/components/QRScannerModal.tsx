@@ -27,7 +27,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ onScanSuccess, o
             const match = decodedText.match(/room=([0-9]{4})/);
             if (match) code = match[1];
           }
-          
+
           if (code) {
             if (navigator.vibrate) navigator.vibrate(100);
             html5Qrcode.stop().then(() => {
@@ -62,30 +62,38 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ onScanSuccess, o
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="scanner-modal-card">
-        <div className="modal-header">
-          <div className="header-title">
-            <Camera size={22} className="text-cyan" />
-            <h3>Escanear Código QR</h3>
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+      <div className="glass-card flex w-full max-w-[400px] flex-col gap-4 p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Camera size={22} className="text-cyber-cyan" />
+            <h3 className="text-base font-bold text-white">Escanear Código QR</h3>
           </div>
-          <button type="button" className="btn-close" onClick={handleClose}>
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+            onClick={handleClose}
+          >
             <X size={20} />
           </button>
         </div>
 
         {cameraError ? (
-          <div className="camera-error-box">
-            <AlertCircle size={32} className="text-red" />
-            <p>{cameraError}</p>
-            <button type="button" className="btn-secondary" onClick={handleClose}>
+          <div className="flex flex-col items-center gap-3.5 p-5 text-center">
+            <AlertCircle size={32} className="text-red-400" />
+            <p className="text-sm leading-relaxed text-muted">{cameraError}</p>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 bg-cyan-400/15 px-5 py-3 text-sm font-bold text-cyber-cyan transition hover:-translate-y-0.5 hover:bg-cyan-400/30"
+              onClick={handleClose}
+            >
               Ingresar código manualmente
             </button>
           </div>
         ) : (
-          <div className="scanner-area">
-            <div id="qr-camera-reader" className="camera-viewport"></div>
-            <p className="scanner-instruction">Apunta la cámara de tu móvil al código QR del proyector</p>
+          <div className="flex flex-col items-center gap-3">
+            <div id="qr-camera-reader" className="w-full overflow-hidden rounded-2xl border-2 border-cyber-cyan"></div>
+            <p className="text-center text-xs text-muted">Apunta la cámara de tu móvil al código QR del proyector</p>
           </div>
         )}
       </div>

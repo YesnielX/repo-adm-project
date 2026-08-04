@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   Crown,
   CheckCircle2,
-  AlertTriangle,
+  X,
   Sparkles,
   MessageSquare
 } from 'lucide-react';
@@ -49,53 +49,81 @@ export const HostView: React.FC = () => {
     ? `http://${localIp}:5173/?room=${roomState.roomCode}`
     : `${window.location.protocol}//${window.location.host}/?room=${roomState.roomCode}`;
 
+  const timerRingClass =
+    roomState.status === 'VOTING'
+      ? 'border-red-500 bg-red-500/15'
+      : roomState.status === 'GUESS_PHASE'
+        ? 'border-amber-400 bg-amber-400/15'
+        : 'border-cyber-purple bg-purple-500/15';
+
+  const botBtnClass =
+    'inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/40 bg-cyan-400/15 px-4 py-3 text-sm font-bold text-cyber-cyan transition hover:-translate-y-0.5 hover:bg-cyan-400/30';
+
+  // En la escena de votos, el expulsado se revela en la segunda mitad.
+  const revealEjected = roomState.status === 'EJECTION' && roomState.timer <= 4;
+
   return (
-    <div className="host-container" ref={stageRef}>
-      <header className="host-header">
-        <div className="brand">
-          <ShieldAlert className="logo-icon-svg text-purple" size={36} />
-          <h1>CODE IMPOSTOR</h1>
+    <div className="flex min-h-screen max-w-350 flex-col p-4 sm:p-8" ref={stageRef}>
+      <header className="mb-8 flex flex-col items-start justify-between gap-3 border-b border-white/10 pb-6 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3.5">
+          <ShieldAlert className="text-cyber-purple" size={36} />
+          <h1 className="text-[28px] font-black tracking-wide">CODE IMPOSTOR</h1>
         </div>
-        <div className="room-badge">
-          <span>PROYECTOR HOST</span>
-          <h2>#{roomState.roomCode}</h2>
+        <div className="text-left sm:text-right">
+          <span className="block text-xs tracking-wider text-muted">PROYECTOR HOST</span>
+          <div className="flex items-center justify-start gap-2.5 sm:justify-end">
+            <h2 className="font-display text-[36px] leading-none text-cyber-cyan">#{roomState.roomCode}</h2>
+            {roomState.status !== 'LOBBY' && roomState.status !== 'GAME_OVER' && (
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-xs font-bold text-amber-300">
+                RONDA {roomState.round}/{roomState.maxRounds}
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
       {/* LOBBY */}
       {roomState.status === 'LOBBY' && (
-        <div className="host-lobby-grid">
-          <div className="qr-card">
-            <div className="qr-header-title">
-              <QrCode size={20} className="text-cyan" />
-              <h3>¡ESCANEA CON TU MÓVIL!</h3>
+        <div className="grid flex-1 gap-8 max-lg:grid-cols-1 lg:grid-cols-[320px_1fr]">
+          <div className="glass-card flex flex-col items-center gap-4 p-6 text-center max-lg:mx-auto max-lg:w-full max-lg:max-w-100">
+            <div className="flex items-center gap-2">
+              <QrCode size={20} className="text-cyber-cyan" />
+              <h3 className="text-sm tracking-wide text-cyber-cyan">¡ESCANEA CON TU MÓVIL!</h3>
             </div>
-            <div className="qr-wrapper">
+            <div className="rounded-2xl bg-white p-4 shadow-[0_0_25px_rgba(255,255,255,0.2)]">
               <QRCodeSVG value={joinUrl} size={190} level="H" includeMargin />
             </div>
-            <p className="ip-link">{joinUrl}</p>
-            <span className="wifi-badge">
+            <p className="break-all font-display text-[13px] text-muted">{joinUrl}</p>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3.5 py-1.5 text-xs text-emerald-400">
               <Wifi size={14} /> Wi-Fi Local
             </span>
           </div>
 
-          <div className="players-panel">
-            <div className="panel-header">
-              <h3>JUGADORES CONECTADOS ({roomState.players.length})</h3>
-
-              <div className="lobby-actions">
+          <div className="glass-card flex flex-col p-6">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+              <h3 className="text-lg font-bold">JUGADORES CONECTADOS ({roomState.players.length})</h3>
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  className="btn-secondary"
-                  onClick={addBots}
-                  title="Agregar 3 bots para probar en solitario"
+                  className={botBtnClass}
+                  onClick={() => addBots(3)}
+                  title="Agregar 3 bots de práctica"
                 >
-                  <Bot size={18} /> +3 Bots de Prueba
+                  <Bot size={18} /> +3
+                </button>
+                <button type="button" className={botBtnClass} onClick={() => addBots(20)} title="Agregar 20 bots">
+                  +20
+                </button>
+                <button type="button" className={botBtnClass} onClick={() => addBots(30)} title="Agregar 30 bots">
+                  +30
+                </button>
+                <button type="button" className={botBtnClass} onClick={() => addBots(50)} title="Agregar 50 bots">
+                  +50
                 </button>
 
                 <button
                   type="button"
-                  className="btn-primary start-btn"
+                  className="inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-cyber-purple to-[#7c3aed] px-7 py-3.5 text-base font-bold text-white shadow-[0_4px_15px_rgba(170,59,255,0.5)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(170,59,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={roomState.players.length < 3}
                   onClick={startGame}
                 >
@@ -107,20 +135,38 @@ export const HostView: React.FC = () => {
               </div>
             </div>
 
-            <div className="players-grid">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-4">
               {roomState.players.length === 0 ? (
-                <div className="empty-players">
-                  <span className="pulse-dot"></span> Escaneen el código QR para unirse a la sala...
+                <div className="col-span-full p-16 text-center text-muted">
+                  <span className="mr-2 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-cyber-cyan"></span>
+                  Escaneen el código QR para unirse a la sala...
                 </div>
               ) : (
                 roomState.players.map((p) => (
-                  <div key={p.id} className={`player-card ${!p.connected ? 'offline' : ''}`} style={{ borderColor: p.color }}>
-                    <div className="player-avatar" style={{ backgroundColor: p.color }}>
+                  <div
+                    key={p.id}
+                    className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 bg-white/5 p-4 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''}`}
+                    style={{ borderColor: p.color }}
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_4px_12px_rgba(0,0,0,0.3)]" style={{ backgroundColor: p.color }}>
                       <AvatarIcon avatarId={p.avatar} size={28} isBot={p.isBot} />
                     </div>
-                    <span className="player-name">{p.name}</span>
-                    {p.isBot && <span className="bot-tag">BOT</span>}
-                    {!p.connected && <span className="offline-tag">OFFLINE</span>}
+                    <span className="text-center text-sm font-semibold">{p.name}</span>
+                    {p.eliminated && (
+                      <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-extrabold text-muted">
+                        ELIMINADO
+                      </span>
+                    )}
+                    {p.isBot && (
+                      <span className="rounded-full border border-blue-500/40 bg-blue-500/20 px-2 py-0.5 text-[10px] font-extrabold text-blue-400">
+                        BOT
+                      </span>
+                    )}
+                    {!p.connected && (
+                      <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[10px] font-extrabold text-red-400">
+                        OFFLINE
+                      </span>
+                    )}
                   </div>
                 ))
               )}
@@ -131,44 +177,51 @@ export const HostView: React.FC = () => {
 
       {/* REVELACIÓN DE ROLES */}
       {roomState.status === 'ROLE_REVEAL' && (
-        <div className="host-stage">
-          <div className="stage-banner">
-            <Sparkles size={48} className="text-cyan animate-spin-slow" />
-            <h2>ASIGNANDO ROLES SECRETOS...</h2>
-            <p>Mira la pantalla de tu teléfono móvil para conocer tu rol.</p>
-            <div className="category-pill">Categoría: <strong>{roomState.category}</strong></div>
+        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+          <Sparkles size={48} className="animate-[spin_8s_linear_infinite] text-cyber-cyan" />
+          <h2 className="text-3xl font-black">ASIGNANDO ROLES SECRETOS...</h2>
+          <p className="text-muted">Mira tu teléfono para conocer tu rol.</p>
+          <div className="mt-3 inline-block rounded-full border border-cyan-400/30 bg-cyan-400/15 px-5 py-2 text-cyber-cyan">
+            Categoría: <strong>{roomState.category}</strong>
           </div>
         </div>
       )}
 
       {/* FASE DE PISTAS */}
       {roomState.status === 'HINT_PHASE' && (
-        <div className="host-stage">
-          <div className="timer-ring">
+        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+          <div className={`flex items-center gap-3 rounded-[30px] border-2 px-8 py-4 ${timerRingClass}`}>
             <Clock size={24} />
-            <span className="timer-num">{roomState.timer}s</span>
-            <span>ESCRIBIENDO PISTAS...</span>
+            <span className="font-display text-[28px] font-bold">{roomState.timer}s</span>
+            <span className="text-sm">ESCRIBIENDO PISTAS...</span>
           </div>
 
-          <h2>ESCRIBIENDO PISTAS EN EL MÓVIL</h2>
-          <p className="subtitle">Categoría: <strong>{roomState.category}</strong></p>
+          <h2 className="text-3xl font-black">ESCRIBIENDO PISTAS EN EL MÓVIL</h2>
+          <p className="text-muted">
+            Categoría: <strong>{roomState.category}</strong>
+          </p>
 
-          <div className="players-status-grid">
+          <div className="grid w-full grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             {roomState.players.map((p) => (
-              <div key={p.id} className={`status-card ${p.hasSubmittedHint ? 'done' : 'pending'} ${!p.connected ? 'offline' : ''}`}>
-                <span className="status-avatar">
+              <div
+                key={p.id}
+                className={`flex items-center gap-2.5 rounded-2xl border p-3 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''} ${p.hasSubmittedHint ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}
+              >
+                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-white/15 bg-white/5">
                   <AvatarIcon avatarId={p.avatar} size={20} isBot={p.isBot} />
                 </span>
-                <span className="status-name">{p.name}</span>
-                <span className="status-badge">
-                  {!p.connected ? (
-                    'OFFLINE'
+                <span className="font-semibold">{p.name}</span>
+                <span className="ml-auto text-xs">
+                  {p.eliminated ? (
+                    <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-extrabold text-muted">ELIMINADO</span>
+                  ) : !p.connected ? (
+                    <span className="font-extrabold text-red-400">OFFLINE</span>
                   ) : p.hasSubmittedHint ? (
-                    <>
-                      <CheckCircle2 size={14} className="text-green" /> Pista lista
-                    </>
+                    <span className="inline-flex items-center gap-1 text-emerald-400">
+                      <CheckCircle2 size={14} /> Pista lista
+                    </span>
                   ) : (
-                    'Escribiendo...'
+                    <span className="text-muted">Escribiendo...</span>
                   )}
                 </span>
               </div>
@@ -177,30 +230,32 @@ export const HostView: React.FC = () => {
         </div>
       )}
 
-      {/* EXPOSICIÓN DE PISTAS Y DEBATE */}
+      {/* EXPOSICIÓN DE PISTAS Y DEBATE: muro legible, scroll solo dentro del panel */}
       {roomState.status === 'SHOWCASE' && (
-        <div className="host-stage">
-          <div className="stage-top">
-            <MessageSquare size={32} className="text-cyan" />
-            <h2>PISTAS PUBLICADAS — ¡HORA DE DEBATIR!</h2>
-            <div className="timer-badge">
-              <Clock size={16} /> {roomState.timer}s
+        <div className="flex flex-1 flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <MessageSquare size={26} className="text-cyber-cyan" />
+              <h2 className="text-2xl font-black">Pistas publicadas</h2>
             </div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-bold text-cyber-cyan">
+              <Clock size={16} /> {roomState.timer}s
+            </span>
           </div>
-          <p className="subtitle">¿Quién dio una pista sospechosa? ¿Quién no conoce la palabra secreta?</p>
+          <p className="text-sm text-muted">¿Quién dio una pista sospechosa? ¿Quién no conoce la palabra?</p>
 
-          <div className="hints-grid">
+          <div className="grid max-h-[calc(100dvh-240px)] min-h-0 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3 overflow-y-auto pr-1">
             {roomState.players.map((p) => (
-              <div key={p.id} className="hint-card">
-                <div className="hint-author">
-                  <span className="author-avatar">
-                    <AvatarIcon avatarId={p.avatar} size={22} isBot={p.isBot} />
+              <div key={p.id} className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-white/5">
+                    <AvatarIcon avatarId={p.avatar} size={18} isBot={p.isBot} />
                   </span>
-                  <span className="author-name">{p.name}</span>
+                  <span className="truncate text-sm font-semibold">{p.name}</span>
                 </div>
-                <div className="hint-bubble">
+                <p className="mt-2.5 line-clamp-4 wrap-break-word rounded-lg border-l-[3px] border-l-cyber-purple bg-purple-500/15 p-2.5 text-[15px] font-semibold leading-snug text-white">
                   "{p.hint || 'Sin pista'}"
-                </div>
+                </p>
               </div>
             ))}
           </div>
@@ -209,23 +264,36 @@ export const HostView: React.FC = () => {
 
       {/* VOTACIÓN */}
       {roomState.status === 'VOTING' && (
-        <div className="host-stage">
-          <div className="timer-ring danger">
+        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+          <div className={`flex items-center gap-3 rounded-[30px] border-2 px-8 py-4 ${timerRingClass}`}>
             <Vote size={24} />
-            <span className="timer-num">{roomState.timer}s</span>
-            <span>VOTACIÓN EN CURSO</span>
+            <span className="font-display text-[28px] font-bold">{roomState.timer}s</span>
+            <span className="text-sm">VOTACIÓN EN CURSO</span>
           </div>
 
-          <h2>¿QUIÉN ES EL IMPOSTOR?</h2>
-          <p className="subtitle">Voten en la pantalla de su celular ahora mismo...</p>
+          <h2 className="text-3xl font-black">¿QUIÉN ES EL IMPOSTOR?</h2>
+          <p className="text-muted">Voten desde su celular.</p>
 
-          <div className="voting-progress-grid">
+          <div className="grid w-full grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
             {roomState.players.map((p) => (
-              <div key={p.id} className={`vote-status-card ${p.hasVoted ? 'voted' : ''} ${!p.connected ? 'offline' : ''}`}>
-                <span><AvatarIcon avatarId={p.avatar} size={18} isBot={p.isBot} /></span>
-                <span>{p.name}</span>
-                <span className="voted-icon">
-                  {!p.connected ? 'OFFLINE' : p.hasVoted ? <CheckCircle2 size={16} className="text-green" /> : <Clock size={14} />}
+              <div
+                key={p.id}
+                className={`flex items-center gap-2 rounded-2xl border p-3 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''} ${p.hasVoted ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}
+              >
+                <span className="flex h-8 w-8 flex-none items-center justify-center">
+                  <AvatarIcon avatarId={p.avatar} size={18} isBot={p.isBot} />
+                </span>
+                <span className="truncate text-sm">{p.name}</span>
+                <span className="ml-auto">
+                  {p.eliminated ? (
+                    <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-extrabold text-muted">ELIMINADO</span>
+                  ) : !p.connected ? (
+                    <span className="text-[10px] font-extrabold text-red-400">OFFLINE</span>
+                  ) : p.hasVoted ? (
+                    <CheckCircle2 size={16} className="text-emerald-400" />
+                  ) : (
+                    <Clock size={14} className="text-muted" />
+                  )}
                 </span>
               </div>
             ))}
@@ -233,90 +301,138 @@ export const HostView: React.FC = () => {
         </div>
       )}
 
-      {/* EXPULSIÓN DE JUGADOR */}
+      {/* EXPULSIÓN: escena de votos estilo Among Us */}
       {roomState.status === 'EJECTION' && (
-        <div className="host-stage ejection-screen">
-          <AlertTriangle size={56} className="text-red animate-bounce" />
-          <h2>RESULTADO DE LA VOTACIÓN</h2>
-          {roomState.ejectedPlayer ? (
-            <div className="ejected-card">
-              <div className="ejected-avatar">
-                <AvatarIcon avatarId={roomState.ejectedPlayer.avatar} size={64} className="text-red" />
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6">
+          <div className="flex items-center gap-3">
+            <h2 className="text-3xl font-black">Votos</h2>
+            <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-bold text-cyber-cyan">
+              <Clock size={16} /> {roomState.timer}s
+            </span>
+          </div>
+
+          <div className="flex w-full max-w-xl flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
+            {[...roomState.players]
+              .sort((a, b) => (roomState.voteCounts?.[b.id] ?? 0) - (roomState.voteCounts?.[a.id] ?? 0))
+              .map((p) => {
+                const votes = roomState.voteCounts?.[p.id] ?? 0;
+                const ejected = roomState.ejectedPlayer?.id === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                      revealEjected && ejected ? 'border-red-500/60 bg-red-500/15' : 'border-white/10 bg-white/5'
+                    }`}
+                  >
+                    <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full" style={{ backgroundColor: p.color }}>
+                      <AvatarIcon avatarId={p.avatar} size={16} isBot={p.isBot} />
+                    </span>
+                    <span className="flex-1 truncate text-left text-sm font-semibold">{p.name}</span>
+                    {votes > 0 && (
+                      <span className="flex items-center gap-1 text-red-400">
+                        {Array.from({ length: Math.min(votes, 5) }).map((_, i) => (
+                          <X key={i} size={14} />
+                        ))}
+                        {votes > 5 && <span className="text-xs font-bold">+{votes - 5}</span>}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+
+          {revealEjected &&
+            (roomState.ejectedPlayer ? (
+              <div className="flex items-center gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 px-6 py-3">
+                <span className="text-xl font-bold">{roomState.ejectedPlayer.name}</span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-sm font-extrabold ${
+                    roomState.ejectedPlayer.role === 'IMPOSTOR'
+                      ? 'border-red-500/50 bg-red-500/15 text-red-400'
+                      : 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+                  }`}
+                >
+                  {roomState.ejectedPlayer.role === 'IMPOSTOR' ? '¡ERA EL IMPOSTOR!' : 'No era el impostor'}
+                </span>
               </div>
-              <h3>{roomState.ejectedPlayer.name} ha sido expulsado/a de la nave</h3>
-              <div className={`role-reveal-badge ${roomState.ejectedPlayer.role}`}>
-                {roomState.ejectedPlayer.role === 'IMPOSTOR'
-                  ? '¡ERA EL IMPOSTOR!'
-                  : 'NO era el impostor (Era Tripulante)'}
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-center">
+                <p className="text-lg font-bold">Empate en los votos. Nadie fue expulsado.</p>
+                <p className="mt-1 text-sm text-muted">Sigue la siguiente ronda...</p>
               </div>
-            </div>
-          ) : (
-            <div className="ejected-card tie">
-              <h3>Hubo un empate en los votos. Nadie fue expulsado.</h3>
-            </div>
-          )}
+            ))}
         </div>
       )}
 
       {/* FASE DE ADIVINACIÓN DEL IMPOSTOR */}
       {roomState.status === 'GUESS_PHASE' && (
-        <div className="host-stage">
-          <div className="timer-ring warning">
+        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+          <div className={`flex items-center gap-3 rounded-[30px] border-2 px-8 py-4 ${timerRingClass}`}>
             <Clock size={24} />
-            <span className="timer-num">{roomState.timer}s</span>
-            <span>ÚLTIMA OPORTUNIDAD</span>
+            <span className="font-display text-[28px] font-bold">{roomState.timer}s</span>
+            <span className="text-sm">ÚLTIMA OPORTUNIDAD</span>
           </div>
-          <h2>EL IMPOSTOR FUE DESCUBIERTO... ¡PERO INTENTA ROBAR LA VICTORIA!</h2>
-          <p className="subtitle">
-            El impostor tiene 15 segundos para adivinar la palabra secreta entre 4 opciones en su celular.
+          <h2 className="max-w-150 text-3xl font-black">
+            EL IMPOSTOR FUE DESCUBIERTO... ¡PERO INTENTA ROBAR LA VICTORIA!
+          </h2>
+          <p className="text-muted">
+            El impostor tiene 15 segundos para adivinar la palabra entre 4 opciones desde su celular.
           </p>
         </div>
       )}
 
       {/* PANTALLA FINAL / GANADORES */}
       {roomState.status === 'GAME_OVER' && (
-        <div className="host-stage game-over-screen">
+        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
           {roomState.winner === 'IMPOSTOR' ? (
-            <div className="winner-box impostor">
-              <ShieldAlert size={48} />
-              <h1>¡VICTORIA DEL IMPOSTOR!</h1>
-              <p>
+            <div className="flex flex-col items-center gap-3 rounded-3xl border border-red-500/40 bg-red-500/10 p-8">
+              <ShieldAlert size={48} className="text-red-400" />
+              <h1 className="text-4xl font-black">¡VICTORIA DEL IMPOSTOR!</h1>
+              <p className="max-w-105 text-muted">
                 {roomState.impostorGuessedCorrectly
                   ? '¡El impostor fue expulsado pero adivinó la palabra secreta!'
-                  : '¡El impostor logró pasar desapercibido y engañar a la clase!'}
+                  : `¡El impostor logró sobrevivir ${roomState.round ?? 1} ${(roomState.round ?? 1) === 1 ? 'ronda' : 'rondas'} y engañar a la clase!`}
               </p>
             </div>
           ) : (
-            <div className="winner-box crewmates">
-              <Trophy size={48} />
-              <h1>¡VICTORIA DE LOS TRIPULANTES!</h1>
-              <p>¡Descubrieron al impostor y protegieron la palabra secreta!</p>
+            <div className="flex flex-col items-center gap-3 rounded-3xl border border-emerald-500/40 bg-emerald-500/10 p-8">
+              <Trophy size={48} className="text-emerald-400" />
+              <h1 className="text-4xl font-black">¡VICTORIA DE LOS TRIPULANTES!</h1>
+              <p className="max-w-105 text-muted">¡Descubrieron al impostor y protegieron la palabra secreta!</p>
             </div>
           )}
 
-          <div className="secret-word-reveal">
+          <div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 text-white">
             La palabra secreta era: <strong>"{roomState.secretWord}"</strong>
           </div>
 
-          <div className="leaderboard">
-            <h3>TABLA DE PUNTUACIÓN</h3>
-            <div className="leaderboard-grid">
+          <div className="w-full max-w-140 rounded-2xl border border-white/10 bg-black/30 p-5">
+            <h3 className="mb-3 text-lg font-bold">TABLA DE PUNTUACIÓN</h3>
+            <div>
               {roomState.players
                 .sort((a, b) => b.score - a.score)
                 .map((p, idx) => (
-                  <div key={p.id} className="leaderboard-row">
-                    <span className="rank">#{idx + 1}</span>
-                    <span className="avatar">
-                      {idx === 0 ? <Crown size={18} className="text-yellow" /> : <AvatarIcon avatarId={p.avatar} size={18} isBot={p.isBot} />}
+                  <div key={p.id} className="flex items-center gap-3 border-b border-white/5 p-3 last:border-0">
+                    <span className="w-8 text-muted">#{idx + 1}</span>
+                    <span className="flex h-8 w-8 items-center justify-center">
+                      {idx === 0 ? (
+                        <Crown size={18} className="text-amber-300" />
+                      ) : (
+                        <AvatarIcon avatarId={p.avatar} size={18} isBot={p.isBot} />
+                      )}
                     </span>
-                    <span className="name">{p.name}</span>
-                    <span className="score">{p.score} pts</span>
+                    <span className="font-semibold">{p.name}</span>
+                    <span className="ml-auto font-bold text-cyber-cyan">{p.score} pts</span>
                   </div>
                 ))}
             </div>
           </div>
 
-          <button type="button" className="btn-primary reset-btn" onClick={resetGame}>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-2xl bg-linear-to-r from-cyber-purple to-cyber-cyan px-8 py-4 text-[15px] font-extrabold tracking-wide text-[#0b0d18] shadow-[0_10px_30px_rgba(170,59,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_38px_rgba(170,59,255,0.45)]"
+            onClick={resetGame}
+          >
             <RotateCcw size={18} /> JUGAR OTRA PARTIDA
           </button>
         </div>
