@@ -1,0 +1,272 @@
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+export interface Player {
+  id: string;
+  name: string;
+  avatar: string;
+  color: string;
+  isHost: boolean;
+  isBot?: boolean;
+  connected: boolean;
+  hasSubmittedHint: boolean;
+  hint: string | null;
+  hasVoted: boolean;
+  score: number;
+}
+
+export interface RoomState {
+  roomCode: string;
+  status: 'LOBBY' | 'ROLE_REVEAL' | 'HINT_PHASE' | 'SHOWCASE' | 'VOTING' | 'EJECTION' | 'GUESS_PHASE' | 'GAME_OVER';
+  hostId: string;
+  category: string | null;
+  secretWord: string | null;
+  players: Player[];
+  timer: number;
+  ejectedPlayer: { id: string; name: string; avatar: string; role: string } | null;
+  winner: 'CREWMATES' | 'IMPOSTOR' | null;
+  impostorGuessedCorrectly: boolean | null;
+}
+
+export interface MyRoleInfo {
+  role: 'CREWMATE' | 'IMPOSTOR';
+  category: string;
+  word: string | null;
+}
+
+interface SocketContextType {
+  socket: Socket | null;
+  roomState: RoomState | null;
+  localIp: string | null;
+  myPlayerId: string | null;
+  myPlayerToken: string | null;
+  myRoleInfo: MyRoleInfo | null;
+  impostorOptions: string[];
+  errorMessage: string | null;
+  createRoom: () => void;
+  addBots: () => void;
+  joinRoom: (roomCode: string, name: string, avatar: string, color: string, token?: string) => void;
+  startGame: () => void;
+  submitHint: (hint: string) => void;
+  submitVote: (targetId: string) => void;
+  submitImpostorGuess: (word: string) => void;
+  resetGame: () => void;
+  clearError: () => void;
+  resetToLanding: () => void;
+}
+
+const SESSION_STORAGE_KEY = 'codeimpostor_player_session';
+const PROFILE_STORAGE_KEY = 'codeimpostor_player_profile';
+
+const SocketContext = createContext<SocketContextType | undefined>(undefined);
+
+export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [roomState, setRoomState] = useState<RoomState | null>(null);
+  const [localIp, setLocalIp] = useState<string | null>(null);
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+  const [myPlayerToken, setMyPlayerToken] = useState<string | null>(null);
+  const [myRoleInfo, setMyRoleInfo] = useState<MyRoleInfo | null>(null);
+  const [impostorOptions, setImpostorOptions] = useState<string[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // True once we have joined successfully during this page life. Used to auto
+  // re-join on transport reconnection (network blip), not on first connect.
+  const joinedRef = useRef(false);
+
+  useEffect(() => {
+    const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3001'
+      : `http://${window.location.hostname}:3001`;
+
+    const newSocket = io(serverUrl, {
+      transports: ['websocket', 'polling']
+    });
+
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      setMyPlayerId(newSocket.id || null);
+
+      // Transport reconnection (network blip): re-join automatically using the
+      // saved session token. On the first connect joinedRef is still false, so
+      // this only runs for reconnections within the same page life.
+      if (joinedRef.current) {
+        try {
+          const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+          const profileData = localStorage.getItem(PROFILE_STORAGE_KEY);
+          if (sessionData && profileData) {
+            const session = JSON.parse(sessionData);
+            const profile = JSON.parse(profileData);
+            if (session?.roomCode && session?.token && profile?.name) {
+              newSocket.emit('join_room', {
+                roomCode: session.roomCode,
+                name: profile.name,
+                avatar: profile.avatar,
+                color: profile.color,
+                token: session.token
+              });
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    });
+
+    newSocket.on('room_created', ({ localIp, roomState }) => {
+      setLocalIp(localIp);
+      setRoomState(roomState);
+    });
+
+    newSocket.on('joined_successfully', ({ playerId, playerToken, roomState }) => {
+      joinedRef.current = true;
+      setMyPlayerId(playerId);
+      setMyPlayerToken(playerToken ?? null);
+      setRoomState(roomState);
+      setErrorMessage(null);
+
+      // Guardar sesión (token de reconexión) para poder re-unirse tras un refresh
+      if (roomState?.roomCode && playerToken) {
+        try {
+          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+            roomCode: roomState.roomCode,
+            token: playerToken
+          }));
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    });
+
+    newSocket.on('room_updated', (updatedState: RoomState) => {
+      setRoomState(updatedState);
+      if (updatedState.status === 'LOBBY') {
+        setMyRoleInfo(null);
+        setImpostorOptions([]);
+      }
+    });
+
+    newSocket.on('your_role', (roleData: MyRoleInfo) => {
+      setMyRoleInfo(roleData);
+    });
+
+    newSocket.on('guess_word_options', ({ options }: { options: string[] }) => {
+      setImpostorOptions(options);
+    });
+
+    newSocket.on('timer_tick', (seconds: number) => {
+      setRoomState(prev => prev ? { ...prev, timer: seconds } : null);
+    });
+
+    newSocket.on('error_message', (msg: string) => {
+      const isFatal = typeof msg === 'string' && (
+        msg.startsWith('La sala no existe') ||
+        msg.startsWith('El Host ha cerrado la sala') ||
+        msg.startsWith('La partida ya está en curso')
+      );
+
+      if (isFatal) {
+        setErrorMessage(msg);
+        setRoomState(null);
+        setMyPlayerToken(null);
+        joinedRef.current = false;
+        // La sala expiró o no existe: la sesión guardada ya no sirve
+        try {
+          localStorage.removeItem(SESSION_STORAGE_KEY);
+        } catch (err) {
+          console.error(err);
+        }
+        // Limpiar el parámetro ?room= de la URL si la sala expiró o no existe
+        if (window.location.search.includes('room=')) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } else {
+        // Errores no fatales (p.ej. 'Voto inválido'): solo mostrar el mensaje,
+        // conservando la sesión, el estado de la sala y la URL.
+        setErrorMessage(msg);
+      }
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, []);
+
+  const createRoom = () => {
+    if (socket) socket.emit('create_room');
+  };
+
+  const addBots = () => {
+    if (socket) socket.emit('add_bots');
+  };
+
+  const joinRoom = (roomCode: string, name: string, avatar: string, color: string, token?: string) => {
+    if (socket) socket.emit('join_room', { roomCode, name, avatar, color, token });
+  };
+
+  const startGame = () => {
+    if (socket) socket.emit('start_game');
+  };
+
+  const submitHint = (hint: string) => {
+    if (socket) socket.emit('submit_hint', { hint });
+  };
+
+  const submitVote = (targetId: string) => {
+    if (socket) socket.emit('submit_vote', { targetId });
+  };
+
+  const submitImpostorGuess = (guessedWord: string) => {
+    if (socket) socket.emit('submit_impostor_guess', { guessedWord });
+  };
+
+  const resetGame = () => {
+    if (socket) socket.emit('reset_game');
+  };
+
+  const clearError = () => setErrorMessage(null);
+
+  const resetToLanding = () => {
+    setRoomState(null);
+    setErrorMessage(null);
+    if (window.location.search) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
+
+  return (
+    <SocketContext.Provider
+      value={{
+        socket,
+        roomState,
+        localIp,
+        myPlayerId,
+        myPlayerToken,
+        myRoleInfo,
+        impostorOptions,
+        errorMessage,
+        createRoom,
+        addBots,
+        joinRoom,
+        startGame,
+        submitHint,
+        submitVote,
+        submitImpostorGuess,
+        resetGame,
+        clearError,
+        resetToLanding
+      }}
+    >
+      {children}
+    </SocketContext.Provider>
+  );
+};
+
+export const useGameSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useGameSocket debe ser usado dentro de un SocketProvider');
+  }
+  return context;
+};
