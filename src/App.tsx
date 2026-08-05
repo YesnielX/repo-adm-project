@@ -26,6 +26,7 @@ const MainApp: React.FC = () => {
     const hostParam = urlParams.get('host');
 
     if (hostParam === 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMode('HOST');
       createRoom();
     } else if (roomParam) {
