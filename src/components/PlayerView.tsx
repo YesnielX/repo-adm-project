@@ -121,7 +121,7 @@ export const PlayerView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, roomCode, savedProfile]);
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (joining) return; // Evita un doble join_room con doble clic
     if (!name.trim() || !roomCode.trim()) return;
@@ -307,11 +307,10 @@ export const PlayerView: React.FC = () => {
                   <button
                     key={av.id}
                     type="button"
-                    className={`relative flex aspect-square items-center justify-center rounded-lg border transition ${
-                      selectedAvatar === av.id
+                    className={`relative flex aspect-square items-center justify-center rounded-lg border transition ${selectedAvatar === av.id
                         ? 'border-cyber-cyan bg-cyan-400/10 text-white shadow-[0_0_14px_rgba(0,242,254,0.4)]'
                         : 'border-white/10 bg-white/5 text-muted hover:bg-white/10 hover:text-white'
-                    }`}
+                      }`}
                     onClick={() => setSelectedAvatar(av.id)}
                     title={av.label}
                   >
@@ -333,11 +332,10 @@ export const PlayerView: React.FC = () => {
                   <button
                     key={c}
                     type="button"
-                    className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition ${
-                      selectedColor === c
+                    className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition ${selectedColor === c
                         ? 'ring-2 ring-white ring-offset-2 ring-offset-cyber-dark'
                         : 'border-[3px] border-white/25 hover:scale-105'
-                    }`}
+                      }`}
                     style={{ backgroundColor: c }}
                     onClick={() => setSelectedColor(c)}
                     aria-label={`Color ${c}`}
@@ -544,11 +542,10 @@ export const PlayerView: React.FC = () => {
                             <button
                               key={p.id}
                               type="button"
-                              className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                                p.connected && !p.eliminated
+                              className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${p.connected && !p.eliminated
                                   ? 'border-white/10 bg-white/5 hover:translate-x-1 hover:border-cyber-purple hover:bg-purple-500/10'
                                   : 'border-white/10 bg-white/5'
-                              }`}
+                                }`}
                               onClick={() => handleVote(p.id)}
                               disabled={!p.connected || p.eliminated}
                             >
@@ -602,9 +599,8 @@ export const PlayerView: React.FC = () => {
                           return (
                             <div
                               key={p.id}
-                              className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition ${
-                                revealEjected && ejected ? 'border-red-500/60 bg-red-500/15' : 'border-white/10 bg-white/5'
-                              }`}
+                              className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition ${revealEjected && ejected ? 'border-red-500/60 bg-red-500/15' : 'border-white/10 bg-white/5'
+                                }`}
                             >
                               <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full" style={{ backgroundColor: p.color }}>
                                 <AvatarIcon avatarId={p.avatar} size={14} isBot={p.isBot} />

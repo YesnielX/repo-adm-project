@@ -74,8 +74,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [impostorOptions, setImpostorOptions] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // True once we have joined successfully during this page life. Used to auto
-  // re-join on transport reconnection (network blip), not on first connect.
   const joinedRef = useRef(false);
 
   useEffect(() => {
@@ -87,14 +85,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       transports: ['websocket', 'polling']
     });
 
-    setSocket(newSocket);
+    setTimeout(() => setSocket(newSocket), 0);
 
     newSocket.on('connect', () => {
       setMyPlayerId(newSocket.id || null);
 
-      // Transport reconnection (network blip): re-join automatically using the
-      // saved session token. On the first connect joinedRef is still false, so
-      // this only runs for reconnections within the same page life.
       if (joinedRef.current) {
         try {
           const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -267,6 +262,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useGameSocket = () => {
   const context = useContext(SocketContext);
   if (!context) {

@@ -5,13 +5,13 @@
  * hay sintaxis borrable).
  */
 
-import express from 'express';
-import { createServer } from 'http';
-import { Server, type Socket } from 'socket.io';
-import cors from 'cors';
-import os from 'os';
-import { randomUUID } from 'crypto';
-import { getRandomWord, getBotHint, WORD_BANK } from './words.ts';
+import express from "express";
+import { createServer } from "http";
+import { Server, type Socket } from "socket.io";
+import cors from "cors";
+import os from "os";
+import { randomUUID } from "crypto";
+import { getRandomWord, getBotHint, WORD_BANK } from "./words.ts";
 import type {
   Player,
   Room,
@@ -20,15 +20,24 @@ import type {
   SubmitHintPayload,
   SubmitVotePayload,
   SubmitImpostorGuessPayload,
-  AddBotsPayload
-} from './types.ts';
+  AddBotsPayload,
+} from "./types.ts";
 
 const PORT = 3001;
 const MAX_ROUNDS = 5;
 
 // Nombres temáticos para los primeros bots; después se numeran.
-const THEMED_BOT_NAMES = ['Bot Turing', 'Bot Ada', 'Bot Grace'];
-const BOT_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#22c55e'];
+const THEMED_BOT_NAMES = ["Bot Turing", "Bot Ada", "Bot Grace"];
+const BOT_COLORS = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ec4899",
+  "#8b5cf6",
+  "#06b6d4",
+  "#f97316",
+  "#22c55e",
+];
 
 // Segundos de cada fase; los usa el anillo de progreso del cliente.
 const PHASE_SECONDS = {
@@ -37,7 +46,7 @@ const PHASE_SECONDS = {
   SHOWCASE: 35,
   VOTING: 20,
   EJECTION: 8,
-  GUESS: 15
+  GUESS: 15,
 } as const;
 
 const app = express();
@@ -45,7 +54,7 @@ app.use(cors());
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] }
+  cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
 const rooms = new Map<string, Room>();
@@ -55,14 +64,19 @@ const roomBySocket = new Map<string, string>();
 /** Primera dirección IPv4 no interna, para generar el QR del host. */
 function getLocalIpAddress(): string {
   const interfaces = os.networkInterfaces();
-  for (const devName in interfaces) {
-    const iface = interfaces[devName];
+  // console.log(interfaces);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  for (const _devName in interfaces) {
+    const iface = interfaces["Wi-Fi"];
+    console.log(iface);
     if (!iface) continue;
     for (const alias of iface) {
-      if (alias.family === 'IPv4' && !alias.internal) return alias.address;
+      if (alias.family === "IPv4" && !alias.internal) return alias.address;
     }
   }
-  return 'localhost';
+
+  return "localhost";
 }
 
 const LOCAL_IP = getLocalIpAddress();
@@ -92,11 +106,11 @@ function clearRoomTimer(room: Room): void {
  */
 function getSanitizedRoomState(room: Room): PublicRoomState {
   const hintsVisible =
-    room.status === 'SHOWCASE' ||
-    room.status === 'VOTING' ||
-    room.status === 'EJECTION' ||
-    room.status === 'GUESS_PHASE' ||
-    room.status === 'GAME_OVER';
+    room.status === "SHOWCASE" ||
+    room.status === "VOTING" ||
+    room.status === "EJECTION" ||
+    room.status === "GUESS_PHASE" ||
+    room.status === "GAME_OVER";
 
   return {
     roomCode: room.roomCode,
@@ -105,7 +119,8 @@ function getSanitizedRoomState(room: Room): PublicRoomState {
     round: room.round,
     maxRounds: room.maxRounds,
     category: room.secretWord ? room.secretWord.category : null,
-    secretWord: room.status === 'GAME_OVER' ? room.secretWord?.word ?? null : null,
+    secretWord:
+      room.status === "GAME_OVER" ? (room.secretWord?.word ?? null) : null,
     players: room.players.map((p) => ({
       id: p.id,
       name: p.name,
@@ -118,13 +133,13 @@ function getSanitizedRoomState(room: Room): PublicRoomState {
       hasSubmittedHint: !!p.hint,
       hint: hintsVisible ? p.hint : null,
       hasVoted: !!p.vote,
-      score: p.score
+      score: p.score,
     })),
     timer: room.timer,
     ejectedPlayer: room.ejectedPlayer,
     winner: room.winner,
     impostorGuessedCorrectly: room.impostorGuessedCorrectly,
-    voteCounts: room.voteCounts
+    voteCounts: room.voteCounts,
   };
 }
 
@@ -135,25 +150,25 @@ function emitRoles(room: Room): void {
   if (!secretWord) return;
   for (const p of room.players) {
     if (p.isBot || p.eliminated) continue;
-    io.to(p.id).emit('your_role', {
+    io.to(p.id).emit("your_role", {
       role: p.role,
       category: secretWord.category,
-      word: p.role === 'CREWMATE' ? secretWord.word : null
+      word: p.role === "CREWMATE" ? secretWord.word : null,
     });
   }
 }
 
 function beginRoleReveal(room: Room): void {
-  room.status = 'ROLE_REVEAL';
+  room.status = "ROLE_REVEAL";
   room.timer = PHASE_SECONDS.ROLE_REVEAL;
 
   emitRoles(room);
-  io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+  io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
   clearRoomTimer(room);
   room.timerInterval = setInterval(() => {
     room.timer--;
-    io.to(room.roomCode).emit('timer_tick', room.timer);
+    io.to(room.roomCode).emit("timer_tick", room.timer);
     if (room.timer <= 0) {
       clearRoomTimer(room);
       startHintPhase(room);
@@ -164,7 +179,7 @@ function beginRoleReveal(room: Room): void {
 /** +10 por ronda para cada crewmate que sigue vivo. */
 function awardRoundBonus(room: Room): void {
   for (const p of room.players) {
-    if (p.role === 'CREWMATE' && !p.eliminated) p.score += 10;
+    if (p.role === "CREWMATE" && !p.eliminated) p.score += 10;
   }
 }
 
@@ -177,12 +192,12 @@ function startNextRound(room: Room): void {
   room.round += 1;
 
   if (room.round > MAX_ROUNDS) {
-    room.winner = 'IMPOSTOR';
+    room.winner = "IMPOSTOR";
     room.impostorGuessedCorrectly = false;
-    room.status = 'GAME_OVER';
+    room.status = "GAME_OVER";
     const impostor = room.players.find((p) => p.id === room.impostorId);
     if (impostor) impostor.score += 100;
-    io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+    io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
     return;
   }
 
@@ -198,20 +213,22 @@ function startNextRound(room: Room): void {
 }
 
 function startHintPhase(room: Room): void {
-  room.status = 'HINT_PHASE';
+  room.status = "HINT_PHASE";
   room.timer = PHASE_SECONDS.HINT;
-  io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+  io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
   // Los bots escriben su pista con un retraso aleatorio (los eliminados no).
-  const word = room.secretWord?.word ?? '';
+  const word = room.secretWord?.word ?? "";
   for (const bot of room.players.filter((p) => p.isBot && !p.eliminated)) {
     const delay = Math.floor(1500 + Math.random() * 2500);
     setTimeout(() => {
-      if (room.status !== 'HINT_PHASE' || bot.hint) return;
-      bot.hint = getBotHint(word, bot.role === 'IMPOSTOR');
-      io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+      if (room.status !== "HINT_PHASE" || bot.hint) return;
+      bot.hint = getBotHint(word, bot.role === "IMPOSTOR");
+      io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
-      const everyoneSubmitted = room.players.filter((p) => !p.eliminated).every((p) => p.hint !== null);
+      const everyoneSubmitted = room.players
+        .filter((p) => !p.eliminated)
+        .every((p) => p.hint !== null);
       if (everyoneSubmitted) {
         clearRoomTimer(room);
         startShowcasePhase(room);
@@ -222,9 +239,11 @@ function startHintPhase(room: Room): void {
   clearRoomTimer(room);
   room.timerInterval = setInterval(() => {
     room.timer--;
-    io.to(room.roomCode).emit('timer_tick', room.timer);
+    io.to(room.roomCode).emit("timer_tick", room.timer);
 
-    const everyoneSubmitted = room.players.filter((p) => !p.eliminated).every((p) => p.hint !== null);
+    const everyoneSubmitted = room.players
+      .filter((p) => !p.eliminated)
+      .every((p) => p.hint !== null);
     if (room.timer <= 0 || everyoneSubmitted) {
       clearRoomTimer(room);
       startShowcasePhase(room);
@@ -233,14 +252,14 @@ function startHintPhase(room: Room): void {
 }
 
 function startShowcasePhase(room: Room): void {
-  room.status = 'SHOWCASE';
+  room.status = "SHOWCASE";
   room.timer = PHASE_SECONDS.SHOWCASE;
-  io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+  io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
   clearRoomTimer(room);
   room.timerInterval = setInterval(() => {
     room.timer--;
-    io.to(room.roomCode).emit('timer_tick', room.timer);
+    io.to(room.roomCode).emit("timer_tick", room.timer);
     if (room.timer <= 0) {
       clearRoomTimer(room);
       startVotingPhase(room);
@@ -249,21 +268,26 @@ function startShowcasePhase(room: Room): void {
 }
 
 function startVotingPhase(room: Room): void {
-  room.status = 'VOTING';
+  room.status = "VOTING";
   room.timer = PHASE_SECONDS.VOTING;
-  io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+  io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
   // Los bots votan a un objetivo aleatorio entre los jugadores vivos.
   for (const bot of room.players.filter((p) => p.isBot && !p.eliminated)) {
     const delay = Math.floor(2000 + Math.random() * 3000);
     setTimeout(() => {
-      if (room.status !== 'VOTING' || bot.vote) return;
-      const possibleTargets = room.players.filter((p) => !p.eliminated && p.id !== bot.id);
-      const randomTarget = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
-      bot.vote = randomTarget ? randomTarget.id : 'SKIP';
-      io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+      if (room.status !== "VOTING" || bot.vote) return;
+      const possibleTargets = room.players.filter(
+        (p) => !p.eliminated && p.id !== bot.id,
+      );
+      const randomTarget =
+        possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+      bot.vote = randomTarget ? randomTarget.id : "SKIP";
+      io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
-      const everyoneVoted = room.players.filter((p) => !p.eliminated).every((p) => p.vote !== null);
+      const everyoneVoted = room.players
+        .filter((p) => !p.eliminated)
+        .every((p) => p.vote !== null);
       if (everyoneVoted) {
         clearRoomTimer(room);
         processVotingResults(room);
@@ -274,9 +298,11 @@ function startVotingPhase(room: Room): void {
   clearRoomTimer(room);
   room.timerInterval = setInterval(() => {
     room.timer--;
-    io.to(room.roomCode).emit('timer_tick', room.timer);
+    io.to(room.roomCode).emit("timer_tick", room.timer);
 
-    const everyoneVoted = room.players.filter((p) => !p.eliminated).every((p) => p.vote !== null);
+    const everyoneVoted = room.players
+      .filter((p) => !p.eliminated)
+      .every((p) => p.vote !== null);
     if (room.timer <= 0 || everyoneVoted) {
       clearRoomTimer(room);
       processVotingResults(room);
@@ -292,11 +318,11 @@ function startVotingPhase(room: Room): void {
  * - Empate -> nadie sale, siguiente ronda.
  */
 function processVotingResults(room: Room): void {
-  room.status = 'EJECTION';
+  room.status = "EJECTION";
 
   const voteCounts: Record<string, number> = {};
   for (const p of room.players) {
-    if (!p.eliminated && p.vote && p.vote !== 'SKIP') {
+    if (!p.eliminated && p.vote && p.vote !== "SKIP") {
       voteCounts[p.vote] = (voteCounts[p.vote] ?? 0) + 1;
     }
   }
@@ -314,14 +340,21 @@ function processVotingResults(room: Room): void {
     }
   }
 
-  const ejectedPlayer = isTie ? null : room.players.find((p) => p.id === ejectedId);
+  const ejectedPlayer = isTie
+    ? null
+    : room.players.find((p) => p.id === ejectedId);
   room.ejectedPlayer =
     ejectedPlayer && ejectedPlayer.role
-      ? { id: ejectedPlayer.id, name: ejectedPlayer.name, avatar: ejectedPlayer.avatar, role: ejectedPlayer.role }
+      ? {
+          id: ejectedPlayer.id,
+          name: ejectedPlayer.name,
+          avatar: ejectedPlayer.avatar,
+          role: ejectedPlayer.role,
+        }
       : null;
 
   room.voteCounts = voteCounts;
-  io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+  io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
   // La escena de votos dura unos segundos con cuenta regresiva; al llegar a
   // cero se resuelve quién sale (o si hubo empate).
@@ -329,7 +362,7 @@ function processVotingResults(room: Room): void {
   clearRoomTimer(room);
   room.timerInterval = setInterval(() => {
     room.timer--;
-    io.to(room.roomCode).emit('timer_tick', room.timer);
+    io.to(room.roomCode).emit("timer_tick", room.timer);
 
     if (room.timer > 0) return;
     clearRoomTimer(room);
@@ -341,21 +374,25 @@ function processVotingResults(room: Room): void {
     }
 
     if (room.ejectedPlayer) {
-      const expelled = room.players.find((p) => p.id === room.ejectedPlayer!.id);
+      const expelled = room.players.find(
+        (p) => p.id === room.ejectedPlayer!.id,
+      );
       if (expelled) {
         expelled.eliminated = true;
         expelled.hint = null;
         expelled.vote = null;
       }
 
-      const aliveCrewmates = room.players.filter((p) => p.role === 'CREWMATE' && !p.eliminated).length;
+      const aliveCrewmates = room.players.filter(
+        (p) => p.role === "CREWMATE" && !p.eliminated,
+      ).length;
       if (aliveCrewmates <= 1) {
-        room.winner = 'IMPOSTOR';
+        room.winner = "IMPOSTOR";
         room.impostorGuessedCorrectly = false;
-        room.status = 'GAME_OVER';
+        room.status = "GAME_OVER";
         const impostor = room.players.find((p) => p.id === room.impostorId);
         if (impostor) impostor.score += 100;
-        io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+        io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
       } else {
         startNextRound(room);
       }
@@ -374,39 +411,43 @@ function startGuessPhase(room: Room): void {
 
   // Bonus de supervivencia de la ronda en la que fue descubierto.
   awardRoundBonus(room);
-  room.status = 'GUESS_PHASE';
+  room.status = "GUESS_PHASE";
   room.timer = PHASE_SECONDS.GUESS;
 
   const wrongOptions = WORD_BANK[secretWord.category]
     .filter((w) => w !== secretWord.word)
     .sort(() => 0.5 - Math.random())
     .slice(0, 3);
-  const wordOptions = [secretWord.word, ...wrongOptions].sort(() => 0.5 - Math.random());
+  const wordOptions = [secretWord.word, ...wrongOptions].sort(
+    () => 0.5 - Math.random(),
+  );
 
   // Se guardan para poder re-emitirlas si el impostor se reconecta.
   room.guessOptions = wordOptions;
 
   const impostorPlayer = room.players.find((p) => p.id === room.impostorId);
   if (impostorPlayer && !impostorPlayer.isBot) {
-    io.to(room.impostorId!).emit('guess_word_options', { options: wordOptions });
+    io.to(room.impostorId!).emit("guess_word_options", {
+      options: wordOptions,
+    });
   }
 
-  io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+  io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
   const finishGuess = (guessedCorrectly: boolean): void => {
-    if (room.status !== 'GUESS_PHASE') return;
+    if (room.status !== "GUESS_PHASE") return;
     room.impostorGuessedCorrectly = guessedCorrectly;
-    room.winner = guessedCorrectly ? 'IMPOSTOR' : 'CREWMATES';
+    room.winner = guessedCorrectly ? "IMPOSTOR" : "CREWMATES";
     if (guessedCorrectly) {
       const impostor = room.players.find((p) => p.id === room.impostorId);
       if (impostor) impostor.score += 150;
     } else {
       for (const p of room.players) {
-        if (p.role === 'CREWMATE' && !p.eliminated) p.score += 50;
+        if (p.role === "CREWMATE" && !p.eliminated) p.score += 50;
       }
     }
-    room.status = 'GAME_OVER';
-    io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+    room.status = "GAME_OVER";
+    io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
   };
 
   // Impostor bot: adivina solo tras un breve retraso.
@@ -420,7 +461,7 @@ function startGuessPhase(room: Room): void {
   clearRoomTimer(room);
   room.timerInterval = setInterval(() => {
     room.timer--;
-    io.to(room.roomCode).emit('timer_tick', room.timer);
+    io.to(room.roomCode).emit("timer_tick", room.timer);
     if (room.timer <= 0) {
       clearRoomTimer(room);
       finishGuess(false);
@@ -430,15 +471,15 @@ function startGuessPhase(room: Room): void {
 
 /* Handlers de socket */
 
-io.on('connection', (socket) => {
+io.on("connection", (socket) => {
   console.log(`[socket] conectado: ${socket.id}`);
 
-  socket.on('create_room', () => {
+  socket.on("create_room", () => {
     const roomCode = generateRoomCode();
     const room: Room = {
       roomCode,
       hostId: socket.id,
-      status: 'LOBBY',
+      status: "LOBBY",
       players: [],
       secretWord: null,
       impostorId: null,
@@ -450,30 +491,31 @@ io.on('connection', (socket) => {
       impostorGuessedCorrectly: null,
       voteCounts: null,
       round: 1,
-      maxRounds: MAX_ROUNDS
+      maxRounds: MAX_ROUNDS,
     };
 
     rooms.set(roomCode, room);
     socket.join(roomCode);
     roomBySocket.set(socket.id, roomCode);
 
-    socket.emit('room_created', {
+    socket.emit("room_created", {
       roomCode,
       localIp: LOCAL_IP,
-      roomState: getSanitizedRoomState(room)
+      roomState: getSanitizedRoomState(room),
     });
 
     console.log(`[room] #${roomCode} creada por host ${socket.id}`);
   });
 
   // Bots de práctica: agrega `count` bots con nombres únicos en la sala.
-  socket.on('add_bots', (data?: Partial<AddBotsPayload>) => {
+  socket.on("add_bots", (data?: Partial<AddBotsPayload>) => {
     const room = roomOfSocket(socket);
-    if (!room || room.hostId !== socket.id || room.status !== 'LOBBY') return;
+    if (!room || room.hostId !== socket.id || room.status !== "LOBBY") return;
 
-    const count = typeof data?.count === 'number' && data.count > 0 && data.count <= 100
-      ? Math.floor(data.count)
-      : 3;
+    const count =
+      typeof data?.count === "number" && data.count > 0 && data.count <= 100
+        ? Math.floor(data.count)
+        : 3;
 
     // Nombres únicos: primero los temáticos libres, luego Bot N sin colisionar.
     const used = new Set(room.players.map((p) => p.name));
@@ -500,7 +542,7 @@ io.on('connection', (socket) => {
         id: `bot-${Date.now()}-${idx}`,
         token: randomUUID(),
         name,
-        avatar: 'Bot',
+        avatar: "Bot",
         color: BOT_COLORS[idx % BOT_COLORS.length],
         isHost: false,
         isBot: true,
@@ -510,20 +552,20 @@ io.on('connection', (socket) => {
         hint: null,
         vote: null,
         score: 0,
-        disconnectTimer: null
+        disconnectTimer: null,
       });
     });
 
-    io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+    io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
   });
 
-  socket.on('join_room', (data?: Partial<JoinRoomPayload>) => {
+  socket.on("join_room", (data?: Partial<JoinRoomPayload>) => {
     const { roomCode, name, avatar, color, token } = data ?? {};
-    if (typeof roomCode !== 'string' || !roomCode.trim()) return;
+    if (typeof roomCode !== "string" || !roomCode.trim()) return;
 
     const room = rooms.get(roomCode);
     if (!room) {
-      socket.emit('error_message', 'La sala no existe.');
+      socket.emit("error_message", "La sala no existe.");
       return;
     }
 
@@ -548,33 +590,40 @@ io.on('connection', (socket) => {
           room.ejectedPlayer = { ...room.ejectedPlayer, id: socket.id };
         }
 
-        io.to(roomCode).emit('room_updated', getSanitizedRoomState(room));
+        io.to(roomCode).emit("room_updated", getSanitizedRoomState(room));
 
-        socket.emit('joined_successfully', {
+        socket.emit("joined_successfully", {
           playerId: socket.id,
           playerToken: token,
-          roomState: getSanitizedRoomState(room)
+          roomState: getSanitizedRoomState(room),
         });
 
         // Re-emitir los eventos privados perdidos al refrescar (nunca a
         // espectadores eliminados).
         if (existingPlayer.role && !existingPlayer.eliminated) {
-          socket.emit('your_role', {
+          socket.emit("your_role", {
             role: existingPlayer.role,
             category: room.secretWord ? room.secretWord.category : null,
-            word: existingPlayer.role === 'CREWMATE' && room.secretWord ? room.secretWord.word : null
+            word:
+              existingPlayer.role === "CREWMATE" && room.secretWord
+                ? room.secretWord.word
+                : null,
           });
         }
-        if (room.status === 'GUESS_PHASE' && existingPlayer.id === room.impostorId && room.guessOptions) {
-          socket.emit('guess_word_options', { options: room.guessOptions });
+        if (
+          room.status === "GUESS_PHASE" &&
+          existingPlayer.id === room.impostorId &&
+          room.guessOptions
+        ) {
+          socket.emit("guess_word_options", { options: room.guessOptions });
         }
 
         return;
       }
     }
 
-    if (room.status !== 'LOBBY') {
-      socket.emit('error_message', 'La partida ya está en curso.');
+    if (room.status !== "LOBBY") {
+      socket.emit("error_message", "La partida ya está en curso.");
       return;
     }
 
@@ -582,8 +631,8 @@ io.on('connection', (socket) => {
       id: socket.id,
       token: randomUUID(),
       name: name || `Jugador ${room.players.length + 1}`,
-      avatar: avatar || 'Bot',
-      color: color || '#aa3bff',
+      avatar: avatar || "Bot",
+      color: color || "#aa3bff",
       isHost: false,
       isBot: false,
       connected: true,
@@ -592,7 +641,7 @@ io.on('connection', (socket) => {
       hint: null,
       vote: null,
       score: 0,
-      disconnectTimer: null
+      disconnectTimer: null,
     };
 
     // Evitar jugadores fantasma si el socket re-emite join_room.
@@ -601,19 +650,19 @@ io.on('connection', (socket) => {
     socket.join(roomCode);
     roomBySocket.set(socket.id, roomCode);
 
-    io.to(roomCode).emit('room_updated', getSanitizedRoomState(room));
-    socket.emit('joined_successfully', {
+    io.to(roomCode).emit("room_updated", getSanitizedRoomState(room));
+    socket.emit("joined_successfully", {
       playerId: socket.id,
       playerToken: newPlayer.token,
-      roomState: getSanitizedRoomState(room)
+      roomState: getSanitizedRoomState(room),
     });
   });
 
-  socket.on('start_game', () => {
+  socket.on("start_game", () => {
     const room = roomOfSocket(socket);
     if (!room || room.hostId !== socket.id) return;
     if (room.players.length < 3) {
-      socket.emit('error_message', 'Se necesitan al menos 3 jugadores.');
+      socket.emit("error_message", "Se necesitan al menos 3 jugadores.");
       return;
     }
 
@@ -625,7 +674,7 @@ io.on('connection', (socket) => {
     room.maxRounds = MAX_ROUNDS;
 
     for (const p of room.players) {
-      p.role = p.id === room.impostorId ? 'IMPOSTOR' : 'CREWMATE';
+      p.role = p.id === room.impostorId ? "IMPOSTOR" : "CREWMATE";
       p.hint = null;
       p.vote = null;
       p.eliminated = false;
@@ -640,83 +689,98 @@ io.on('connection', (socket) => {
     beginRoleReveal(room);
   });
 
-  socket.on('submit_hint', (data?: Partial<SubmitHintPayload>) => {
+  socket.on("submit_hint", (data?: Partial<SubmitHintPayload>) => {
     const { hint } = data ?? {};
-    if (typeof hint !== 'string' || !hint.trim()) return;
+    if (typeof hint !== "string" || !hint.trim()) return;
 
     const room = roomOfSocket(socket);
-    if (!room || room.status !== 'HINT_PHASE') return;
+    if (!room || room.status !== "HINT_PHASE") return;
 
     const player = room.players.find((p) => p.id === socket.id);
     if (!player || player.eliminated || player.hint) return;
 
     player.hint = hint.trim().substring(0, 50);
-    io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+    io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
-    const everyoneSubmitted = room.players.filter((p) => !p.eliminated).every((p) => p.hint !== null);
+    const everyoneSubmitted = room.players
+      .filter((p) => !p.eliminated)
+      .every((p) => p.hint !== null);
     if (everyoneSubmitted) {
       clearRoomTimer(room);
       startShowcasePhase(room);
     }
   });
 
-  socket.on('submit_vote', (data?: Partial<SubmitVotePayload>) => {
+  socket.on("submit_vote", (data?: Partial<SubmitVotePayload>) => {
     const { targetId } = data ?? {};
     const room = roomOfSocket(socket);
-    if (!room || room.status !== 'VOTING') return;
+    if (!room || room.status !== "VOTING") return;
 
     const player = room.players.find((p) => p.id === socket.id);
     if (!player || player.eliminated || player.vote) return;
 
-    const validTarget = typeof targetId === 'string' && (targetId === 'SKIP' || room.players.some((p) => p.id === targetId && !p.eliminated));
+    const validTarget =
+      typeof targetId === "string" &&
+      (targetId === "SKIP" ||
+        room.players.some((p) => p.id === targetId && !p.eliminated));
     if (!validTarget) {
-      socket.emit('error_message', 'Voto inválido');
+      socket.emit("error_message", "Voto inválido");
       return;
     }
 
     player.vote = targetId;
-    io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+    io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
-    const everyoneVoted = room.players.filter((p) => !p.eliminated).every((p) => p.vote !== null);
+    const everyoneVoted = room.players
+      .filter((p) => !p.eliminated)
+      .every((p) => p.vote !== null);
     if (everyoneVoted) {
       clearRoomTimer(room);
       processVotingResults(room);
     }
   });
 
-  socket.on('submit_impostor_guess', (data?: Partial<SubmitImpostorGuessPayload>) => {
-    const { guessedWord } = data ?? {};
-    if (typeof guessedWord !== 'string') return;
+  socket.on(
+    "submit_impostor_guess",
+    (data?: Partial<SubmitImpostorGuessPayload>) => {
+      const { guessedWord } = data ?? {};
+      if (typeof guessedWord !== "string") return;
 
-    const room = roomOfSocket(socket);
-    if (!room || room.status !== 'GUESS_PHASE' || socket.id !== room.impostorId) return;
+      const room = roomOfSocket(socket);
+      if (
+        !room ||
+        room.status !== "GUESS_PHASE" ||
+        socket.id !== room.impostorId
+      )
+        return;
 
-    clearRoomTimer(room);
-    const secretWord = room.secretWord;
-    if (!secretWord) return;
+      clearRoomTimer(room);
+      const secretWord = room.secretWord;
+      if (!secretWord) return;
 
-    const guessedCorrectly = guessedWord === secretWord.word;
-    room.impostorGuessedCorrectly = guessedCorrectly;
-    room.winner = guessedCorrectly ? 'IMPOSTOR' : 'CREWMATES';
-    if (guessedCorrectly) {
-      const impostor = room.players.find((p) => p.id === room.impostorId);
-      if (impostor) impostor.score += 150;
-    } else {
-      for (const p of room.players) {
-        if (p.role === 'CREWMATE' && !p.eliminated) p.score += 50;
+      const guessedCorrectly = guessedWord === secretWord.word;
+      room.impostorGuessedCorrectly = guessedCorrectly;
+      room.winner = guessedCorrectly ? "IMPOSTOR" : "CREWMATES";
+      if (guessedCorrectly) {
+        const impostor = room.players.find((p) => p.id === room.impostorId);
+        if (impostor) impostor.score += 150;
+      } else {
+        for (const p of room.players) {
+          if (p.role === "CREWMATE" && !p.eliminated) p.score += 50;
+        }
       }
-    }
 
-    room.status = 'GAME_OVER';
-    io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
-  });
+      room.status = "GAME_OVER";
+      io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
+    },
+  );
 
-  socket.on('reset_game', () => {
+  socket.on("reset_game", () => {
     const room = roomOfSocket(socket);
     if (!room || room.hostId !== socket.id) return;
 
     clearRoomTimer(room);
-    room.status = 'LOBBY';
+    room.status = "LOBBY";
     room.secretWord = null;
     room.impostorId = null;
     room.guessOptions = null;
@@ -734,10 +798,10 @@ io.on('connection', (socket) => {
       p.eliminated = false;
     }
 
-    io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+    io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
   });
 
-  socket.on('disconnect', () => {
+  socket.on("disconnect", () => {
     console.log(`[socket] desconectado: ${socket.id}`);
 
     const room = roomOfSocket(socket);
@@ -747,7 +811,7 @@ io.on('connection', (socket) => {
     // Si el host se va, la sala muere con él.
     if (room.hostId === socket.id) {
       clearRoomTimer(room);
-      io.to(room.roomCode).emit('error_message', 'El Host ha cerrado la sala.');
+      io.to(room.roomCode).emit("error_message", "El Host ha cerrado la sala.");
       rooms.delete(room.roomCode);
       return;
     }
@@ -757,7 +821,7 @@ io.on('connection', (socket) => {
 
     // Gracia de reconexión: 45s para volver con el token antes de retirarlo.
     player.connected = false;
-    io.to(room.roomCode).emit('room_updated', getSanitizedRoomState(room));
+    io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
     if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
     player.disconnectTimer = setTimeout(() => {
@@ -766,12 +830,17 @@ io.on('connection', (socket) => {
       const stillThere = currentRoom.players.find((p) => p.id === player.id);
       if (!stillThere || stillThere.connected) return;
 
-      currentRoom.players = currentRoom.players.filter((p) => p.id !== player.id);
-      io.to(currentRoom.roomCode).emit('room_updated', getSanitizedRoomState(currentRoom));
+      currentRoom.players = currentRoom.players.filter(
+        (p) => p.id !== player.id,
+      );
+      io.to(currentRoom.roomCode).emit(
+        "room_updated",
+        getSanitizedRoomState(currentRoom),
+      );
     }, 45000);
   });
 });
 
-httpServer.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor CodeImpostor escuchando en http://${LOCAL_IP}:${PORT}`);
 });
