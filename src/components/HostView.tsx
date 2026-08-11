@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import gsap from 'gsap';
@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   X,
   Sparkles,
-  MessageSquare
+  MessageSquare,
+  Home,
+  AlertTriangle
 } from 'lucide-react';
 import { useGameSocket } from '../context/SocketContext';
 import { AvatarIcon } from './AvatarIcon';
@@ -24,6 +26,15 @@ import { AvatarIcon } from './AvatarIcon';
 export const HostView: React.FC = () => {
   const { roomState, localIp, startGame, addBots, resetGame } = useGameSocket();
   const stageRef = useRef<HTMLDivElement>(null);
+  const [showExitModal, setShowExitModal] = useState(false);
+
+  const handleBackToHome = () => {
+    setShowExitModal(true);
+  };
+
+  const confirmExit = () => {
+    window.location.href = '/';
+  };
 
   useEffect(() => {
     if (stageRef.current) {
@@ -63,29 +74,72 @@ export const HostView: React.FC = () => {
   const revealEjected = roomState.status === 'EJECTION' && roomState.timer <= 4;
 
   return (
-    <div className="flex min-h-screen max-w-350 flex-col p-4 sm:p-8" ref={stageRef}>
+    <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col p-4 sm:p-6 lg:p-8" ref={stageRef}>
+      {/* Modal de confirmación de salida */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="glass-card w-full max-w-md p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10">
+                <AlertTriangle size={24} className="text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold">¿Salir de la sala?</h3>
+            </div>
+            <p className="mb-6 leading-relaxed text-muted">
+              Se cerrará la sala y <strong className="text-white">todos los jugadores serán desconectados</strong>. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowExitModal(false)}
+                className="flex-1 rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-bold text-white transition hover:bg-white/10"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmExit}
+                className="flex-1 rounded-xl border border-red-500/40 bg-red-500/15 px-5 py-3 font-bold text-red-400 transition hover:bg-red-500/25"
+              >
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <header className="mb-8 flex flex-col items-start justify-between gap-3 border-b border-white/10 pb-6 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3.5">
           <ShieldAlert className="text-cyber-purple" size={36} />
           <h1 className="text-[28px] font-black tracking-wide">CODE IMPOSTOR</h1>
         </div>
-        <div className="text-left sm:text-right">
-          <span className="block text-xs tracking-wider text-muted">PROYECTOR HOST</span>
-          <div className="flex items-center justify-start gap-2.5 sm:justify-end">
-            <h2 className="font-display text-[36px] leading-none text-cyber-cyan">#{roomState.roomCode}</h2>
-            {roomState.status !== 'LOBBY' && roomState.status !== 'GAME_OVER' && (
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-xs font-bold text-amber-300">
-                RONDA {roomState.round}/{roomState.maxRounds}
-              </span>
-            )}
+        <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+          <button
+            type="button"
+            onClick={handleBackToHome}
+            className="group inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-bold text-cyber-cyan shadow-[0_0_20px_rgba(0,242,254,0.15)] transition-all hover:-translate-x-1 hover:border-cyan-400/50 hover:bg-cyan-400/20 hover:shadow-[0_0_30px_rgba(0,242,254,0.3)] sm:px-5 sm:py-3"
+            title="Volver al inicio"
+          >
+            <Home size={18} className="transition-transform group-hover:-translate-x-0.5" />
+            <span>Volver</span>
+          </button>
+          <div className="text-left sm:text-right">
+            <span className="block text-xs tracking-wider text-muted">PROYECTOR HOST</span>
+            <div className="flex items-center justify-start gap-2.5 sm:justify-end">
+              <h2 className="font-display text-[36px] leading-none text-cyber-cyan">#{roomState.roomCode}</h2>
+              {roomState.status !== 'LOBBY' && roomState.status !== 'GAME_OVER' && (
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-xs font-bold text-amber-300">
+                  RONDA {roomState.round}/{roomState.maxRounds}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       {/* LOBBY */}
       {roomState.status === 'LOBBY' && (
-        <div className="grid flex-1 gap-8 max-lg:grid-cols-1 lg:grid-cols-[320px_1fr]">
-          <div className="glass-card flex flex-col items-center gap-4 p-6 text-center max-lg:mx-auto max-lg:w-full max-lg:max-w-100">
+        <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(280px,340px)_1fr] lg:gap-8">
+          <div className="glass-card mx-auto flex w-full max-w-[340px] flex-col items-center gap-4 p-5 text-center sm:p-6 lg:mx-0">
             <div className="flex items-center gap-2">
               <QrCode size={20} className="text-cyber-cyan" />
               <h3 className="text-sm tracking-wide text-cyber-cyan">¡ESCANEA CON TU MÓVIL!</h3>
@@ -99,9 +153,9 @@ export const HostView: React.FC = () => {
             </span>
           </div>
 
-          <div className="glass-card flex flex-col p-6">
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-lg font-bold">JUGADORES CONECTADOS ({roomState.players.length})</h3>
+          <div className="glass-card flex flex-col p-5 sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-6">
+              <h3 className="text-base font-bold sm:text-lg">JUGADORES CONECTADOS ({roomState.players.length})</h3>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -123,21 +177,22 @@ export const HostView: React.FC = () => {
 
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-cyber-purple to-[#7c3aed] px-7 py-3.5 text-base font-bold text-white shadow-[0_4px_15px_rgba(170,59,255,0.5)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(170,59,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-linear-to-r from-cyber-purple to-[#7c3aed] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_15px_rgba(170,59,255,0.5)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(170,59,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-7 sm:py-3.5 sm:text-base"
                   disabled={roomState.players.length < 3}
                   onClick={startGame}
                 >
                   <Play size={18} />
-                  {roomState.players.length < 3
+                  <span className="hidden sm:inline">{roomState.players.length < 3
                     ? 'Esperando al menos 3 jugadores...'
-                    : '¡INICIAR PARTIDA!'}
+                    : '¡INICIAR PARTIDA!'}</span>
+                  <span className="sm:hidden">{roomState.players.length < 3 ? 'Esperando...' : 'INICIAR'}</span>
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-4">
               {roomState.players.length === 0 ? (
-                <div className="col-span-full p-16 text-center text-muted">
+                <div className="col-span-full p-12 text-center text-sm text-muted sm:p-16">
                   <span className="mr-2 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-cyber-cyan"></span>
                   Escaneen el código QR para unirse a la sala...
                 </div>
@@ -145,25 +200,25 @@ export const HostView: React.FC = () => {
                 roomState.players.map((p) => (
                   <div
                     key={p.id}
-                    className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 bg-white/5 p-4 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''}`}
+                    className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 bg-white/5 p-3 sm:p-4 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''}`}
                     style={{ borderColor: p.color }}
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_4px_12px_rgba(0,0,0,0.3)]" style={{ backgroundColor: p.color }}>
-                      <AvatarIcon avatarId={p.avatar} size={28} isBot={p.isBot} />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-[0_4px_12px_rgba(0,0,0,0.3)] sm:h-14 sm:w-14" style={{ backgroundColor: p.color }}>
+                      <AvatarIcon avatarId={p.avatar} size={24} isBot={p.isBot} />
                     </div>
-                    <span className="text-center text-sm font-semibold">{p.name}</span>
+                    <span className="line-clamp-2 w-full text-center text-xs font-semibold sm:text-sm">{p.name}</span>
                     {p.eliminated && (
-                      <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-extrabold text-muted">
+                      <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-muted">
                         ELIMINADO
                       </span>
                     )}
                     {p.isBot && (
-                      <span className="rounded-full border border-blue-500/40 bg-blue-500/20 px-2 py-0.5 text-[10px] font-extrabold text-blue-400">
+                      <span className="rounded-full border border-blue-500/40 bg-blue-500/20 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-blue-400">
                         BOT
                       </span>
                     )}
                     {!p.connected && (
-                      <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[10px] font-extrabold text-red-400">
+                      <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-red-400">
                         OFFLINE
                       </span>
                     )}

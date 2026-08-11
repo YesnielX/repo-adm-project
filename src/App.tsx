@@ -53,7 +53,7 @@ const MainApp: React.FC = () => {
               <span className="font-display text-sm font-bold tracking-[3px]">CODE IMPOSTOR</span>
             </div>
             <span className="hidden text-xs text-muted sm:block">
-              Se juega en la red del aula, sin internet
+              Red local del aula
             </span>
           </header>
 
@@ -114,7 +114,7 @@ const MainApp: React.FC = () => {
             </div>
 
             <p className="mt-8 text-xs leading-relaxed text-muted">
-              Sin instalar nada · Con bots de práctica · Hasta 5 rondas
+              Sin descargas • Bots incluidos • 5 rondas
             </p>
           </main>
         </>

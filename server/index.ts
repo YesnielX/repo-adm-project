@@ -64,13 +64,8 @@ const roomBySocket = new Map<string, string>();
 /** Primera dirección IPv4 no interna, para generar el QR del host. */
 function getLocalIpAddress(): string {
   const interfaces = os.networkInterfaces();
-  // console.log(interfaces);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for (const _devName in interfaces) {
-    const iface = interfaces["Wi-Fi"];
-    console.log(iface);
-    if (!iface) continue;
+  const iface = interfaces["Wi-Fi"];
+  if (iface) {
     for (const alias of iface) {
       if (alias.family === "IPv4" && !alias.internal) return alias.address;
     }

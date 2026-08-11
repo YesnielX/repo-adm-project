@@ -18,7 +18,8 @@ import {
   Ghost,
   KeyRound,
   User,
-  Eye
+  Eye,
+  Home
 } from 'lucide-react';
 import { useGameSocket } from '../context/SocketContext';
 import { AVATAR_OPTIONS, AvatarIcon } from './AvatarIcon';
@@ -80,6 +81,7 @@ export const PlayerView: React.FC = () => {
   const [hintInput, setHintInput] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const autoRejoinAttemptedRef = useRef(false);
@@ -168,6 +170,15 @@ export const PlayerView: React.FC = () => {
     resetToLanding();
   };
 
+  const handleBackToHome = () => {
+    setShowExitModal(true);
+  };
+
+  const confirmExit = () => {
+    setShowExitModal(false);
+    resetToLanding();
+  };
+
   const me = roomState?.players.find((p) => p.id === myPlayerId);
 
   // En la escena de votos, el expulsado se revela en la segunda mitad.
@@ -184,7 +195,7 @@ export const PlayerView: React.FC = () => {
   );
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden text-white" ref={containerRef}>
+    <div className="flex h-dvh flex-col overflow-hidden bg-cyber-dark text-white" ref={containerRef}>
       {/* Reconexión */}
       {!roomState && isAutoRejoining && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
@@ -198,39 +209,55 @@ export const PlayerView: React.FC = () => {
 
       {/* Formulario de unión */}
       {!roomState && !isAutoRejoining && (
-        <div className="flex h-full flex-col overflow-hidden px-5 pb-6 pt-6">
-          <div className="mb-5 text-center">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl border border-purple-500/40 bg-purple-500/10 text-cyber-purple">
-              <ShieldAlert size={24} />
+        <div className="flex h-full flex-col overflow-hidden px-4 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6 md:mx-auto md:w-full md:max-w-[480px]">
+          {/* Botón volver mejorado */}
+          <button
+            type="button"
+            onClick={() => window.location.href = '/'}
+            className="group absolute left-4 top-5 flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-bold text-cyber-cyan shadow-[0_0_20px_rgba(0,242,254,0.15)] transition-all hover:-translate-x-1 hover:border-cyan-400/50 hover:bg-cyan-400/20 hover:shadow-[0_0_30px_rgba(0,242,254,0.3)] sm:left-6 sm:top-6 sm:px-4 sm:py-2.5"
+            title="Volver al inicio"
+          >
+            <Home size={18} className="transition-transform group-hover:-translate-x-0.5" />
+            <span className="hidden sm:inline">Volver</span>
+          </button>
+
+          <div className="mb-4 text-center sm:mb-5">
+            <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-2xl border border-purple-500/40 bg-purple-500/10 text-cyber-purple sm:h-12 sm:w-12">
+              <ShieldAlert size={22} className="sm:hidden" />
+              <ShieldAlert size={24} className="hidden sm:block" />
             </div>
-            <h1 className="font-display text-lg font-extrabold tracking-[2px]">CODE IMPOSTOR</h1>
+            <h1 className="font-display text-base font-extrabold tracking-[2px] sm:text-lg">CODE IMPOSTOR</h1>
             <p className="mt-0.5 text-xs text-muted">Únete a la partida desde tu móvil</p>
           </div>
 
           {errorMessage && (
-            <div className="mb-6 flex flex-col gap-2.5 rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-red-300">
+            <div className="mb-5 flex flex-col gap-2.5 rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-red-300 sm:mb-6">
               <div className="flex items-start gap-2.5">
-                <AlertTriangle size={20} />
+                <AlertTriangle size={18} className="flex-shrink-0 sm:hidden" />
+                <AlertTriangle size={20} className="hidden flex-shrink-0 sm:block" />
                 <div>
-                  <strong className="block text-sm">La sala no existe o ha caducado</strong>
-                  <p className="mt-0.5 text-[12.5px] text-muted">Comprueba el código con el Host de la partida.</p>
+                  <strong className="block text-xs font-semibold sm:text-sm">La sala no existe o ha caducado</strong>
+                  <p className="mt-0.5 text-[11.5px] leading-relaxed text-muted sm:text-[12.5px]">Comprueba el código con el Host de la partida.</p>
                 </div>
               </div>
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-[12.5px] font-semibold text-white transition hover:border-cyber-cyan hover:bg-white/10"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11.5px] font-semibold text-white transition hover:border-cyber-cyan hover:bg-white/10 sm:px-3 sm:text-[12.5px]"
                   onClick={handleClearExpiredRoom}
                 >
-                  <RotateCcw size={14} /> Cambiar código
+                  <RotateCcw size={13} className="sm:hidden" />
+                  <RotateCcw size={14} className="hidden sm:block" />
+                  Cambiar código
                 </button>
                 <button
                   type="button"
-                  className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-white/5 text-muted transition hover:bg-white/10 hover:text-white"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-muted transition hover:bg-white/10 hover:text-white sm:h-7.5 sm:w-7.5"
                   onClick={clearError}
                   aria-label="Cerrar"
                 >
-                  <X size={16} />
+                  <X size={15} className="sm:hidden" />
+                  <X size={16} className="hidden sm:block" />
                 </button>
               </div>
             </div>
@@ -300,9 +327,9 @@ export const PlayerView: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-[1.5px] text-muted">Avatar</label>
-              <div className="grid min-h-0 flex-1 content-start grid-cols-10 gap-1.5 overflow-y-auto p-0.5">
+              <div className="grid min-h-0 flex-1 content-start grid-cols-8 gap-1.5 overflow-y-auto p-0.5 sm:grid-cols-10 md:gap-2">
                 {AVATAR_OPTIONS.map((av) => (
                   <button
                     key={av.id}
@@ -314,10 +341,12 @@ export const PlayerView: React.FC = () => {
                     onClick={() => setSelectedAvatar(av.id)}
                     title={av.label}
                   >
-                    <av.icon size={16} />
+                    <av.icon size={14} className="sm:hidden" />
+                    <av.icon size={16} className="hidden sm:block" />
                     {selectedAvatar === av.id && (
-                      <span className="absolute -right-1 -top-1 text-cyber-cyan drop-shadow-[0_0_4px_rgba(0,242,254,0.4)]">
-                        <CheckCircle2 size={11} />
+                      <span className="absolute -right-0.5 -top-0.5 text-cyber-cyan drop-shadow-[0_0_4px_rgba(0,242,254,0.4)] sm:-right-1 sm:-top-1">
+                        <CheckCircle2 size={10} className="sm:hidden" />
+                        <CheckCircle2 size={11} className="hidden sm:block" />
                       </span>
                     )}
                   </button>
@@ -327,12 +356,13 @@ export const PlayerView: React.FC = () => {
 
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-[1.5px] text-muted">Color</label>
-              <div className="flex justify-center gap-2.5 py-0.5">
+              <div className="flex justify-center gap-2 py-0.5 sm:gap-2.5">
                 {COLORS.map((c) => (
                   <button
                     key={c}
                     type="button"
-                    className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition ${selectedColor === c
+                    className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition sm:h-9 sm:w-9 ${
+                      selectedColor === c
                         ? 'ring-2 ring-white ring-offset-2 ring-offset-cyber-dark'
                         : 'border-[3px] border-white/25 hover:scale-105'
                       }`}
@@ -340,17 +370,19 @@ export const PlayerView: React.FC = () => {
                     onClick={() => setSelectedColor(c)}
                     aria-label={`Color ${c}`}
                   >
-                    {selectedColor === c && <CheckCircle2 size={14} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" />}
+                    {selectedColor === c && <CheckCircle2 size={13} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] sm:hidden" />}
+                    {selectedColor === c && <CheckCircle2 size={14} className="hidden text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] sm:block" />}
                   </button>
                 ))}
               </div>
             </div>
 
-            <button type="submit" className="btn-cta" disabled={isJoining}>
-              {isJoining ? <Loader2 size={20} className="animate-spin" /> : <Smartphone size={20} />}
+            <button type="submit" className="btn-cta text-sm sm:text-[15px]" disabled={isJoining}>
+              {isJoining ? <Loader2 size={18} className="animate-spin sm:hidden" /> : <Smartphone size={18} className="sm:hidden" />}
+              {isJoining ? <Loader2 size={20} className="hidden animate-spin sm:block" /> : <Smartphone size={20} className="hidden sm:block" />}
               {isJoining ? 'ENTRANDO...' : 'ENTRAR A LA SALA'}
             </button>
-            <p className="text-center text-xs text-muted">Red local · Sin instalar nada</p>
+            <p className="text-center text-xs text-muted">Red local</p>
           </form>
         </div>
       )}
@@ -358,22 +390,68 @@ export const PlayerView: React.FC = () => {
       {/* Dentro de la partida */}
       {roomState && (
         <div className="flex min-h-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex items-center justify-between gap-2.5 border-b border-white/10 bg-cyber-card/70 px-4 py-3 backdrop-blur-xl">
-            <div className="flex min-w-0 items-center gap-2.5">
+          {/* Modal de confirmación de salida */}
+          {showExitModal && (
+            <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+              <div className="glass-card w-full max-w-sm p-5 sm:p-6">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10 sm:h-12 sm:w-12">
+                    <AlertTriangle size={20} className="text-red-400 sm:hidden" />
+                    <AlertTriangle size={24} className="hidden text-red-400 sm:block" />
+                  </div>
+                  <h3 className="text-lg font-bold sm:text-xl">¿Salir de la sala?</h3>
+                </div>
+                <p className="mb-5 text-sm leading-relaxed text-muted sm:mb-6 sm:text-base">
+                  Abandonarás la partida actual. {!me?.eliminated && roomState.status !== 'LOBBY' && roomState.status !== 'GAME_OVER' && (
+                    <span className="text-white">Podrás volver a unirte con el mismo código.</span>
+                  )}
+                </p>
+                <div className="flex gap-2.5 sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowExitModal(false)}
+                    className="flex-1 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10 sm:px-5 sm:py-3 sm:text-base"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmExit}
+                    className="flex-1 rounded-xl border border-red-500/40 bg-red-500/15 px-4 py-2.5 text-sm font-bold text-red-400 transition hover:bg-red-500/25 sm:px-5 sm:py-3 sm:text-base"
+                  >
+                    Salir
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-white/10 bg-cyber-card/70 px-3 py-2.5 backdrop-blur-xl sm:gap-2.5 sm:px-4 sm:py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
+              <button
+                type="button"
+                onClick={handleBackToHome}
+                className="group flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-400/10 text-cyber-cyan shadow-[0_0_15px_rgba(0,242,254,0.15)] transition-all hover:border-cyan-400/50 hover:bg-cyan-400/20 hover:shadow-[0_0_25px_rgba(0,242,254,0.3)] sm:h-9 sm:w-9"
+                title="Volver al inicio"
+              >
+                <Home size={15} className="transition-transform group-hover:-translate-x-0.5 sm:hidden" />
+                <Home size={16} className="hidden transition-transform group-hover:-translate-x-0.5 sm:block" />
+              </button>
               <span
-                className="flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-white/20 shadow-[0_0_12px_rgba(0,0,0,0.35)]"
+                className="flex h-8 w-8 flex-none items-center justify-center rounded-xl border border-white/20 shadow-[0_0_12px_rgba(0,0,0,0.35)] sm:h-9 sm:w-9"
                 style={{ backgroundColor: me?.color || '#aa3bff' }}
               >
-                <AvatarIcon avatarId={me?.avatar || 'terminal'} size={18} isBot={me?.isBot} />
+                <AvatarIcon avatarId={me?.avatar || 'terminal'} size={16} isBot={me?.isBot} className="sm:hidden" />
+                <AvatarIcon avatarId={me?.avatar || 'terminal'} size={18} isBot={me?.isBot} className="hidden sm:block" />
               </span>
-              <span className="truncate text-[15px] font-bold">{me?.name}</span>
+              <span className="truncate text-sm font-bold sm:text-[15px]">{me?.name}</span>
             </div>
-            <div className="flex flex-none items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold">
+            <div className="flex flex-none items-center gap-1.5 sm:gap-2">
+              <span className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-bold sm:gap-1.5 sm:px-2.5 sm:py-1.5 sm:text-xs">
                 #{roomState.roomCode}
               </span>
               {roomState.status !== 'LOBBY' && roomState.status !== 'GAME_OVER' && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-xs font-bold text-amber-300">
+                <span className="inline-flex items-center gap-1 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[11px] font-bold text-amber-300 sm:gap-1.5 sm:px-2.5 sm:py-1.5 sm:text-xs">
                   RONDA {roomState.round}/{roomState.maxRounds}
                 </span>
               )}
@@ -396,49 +474,53 @@ export const PlayerView: React.FC = () => {
               <>
                 {/* LOBBY: esperando */}
                 {roomState.status === 'LOBBY' && (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/25 bg-cyan-400/5 text-cyber-cyan">
-                      <Clock size={30} className="animate-[pv-pulse_1.8s_ease-in-out_infinite]" />
+                  <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center sm:gap-4 sm:px-6">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/25 bg-cyan-400/5 text-cyber-cyan sm:h-16 sm:w-16">
+                      <Clock size={26} className="animate-[pv-pulse_1.8s_ease-in-out_infinite] sm:hidden" />
+                      <Clock size={30} className="hidden animate-[pv-pulse_1.8s_ease-in-out_infinite] sm:block" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-extrabold">Esperando a la clase</h2>
-                      <p className="mx-auto mt-1 max-w-75 text-sm leading-relaxed text-muted">
+                      <h2 className="text-lg font-extrabold sm:text-xl">Esperando a la clase</h2>
+                      <p className="mx-auto mt-1 max-w-[280px] text-xs leading-relaxed text-muted sm:max-w-75 sm:text-sm">
                         El proyector iniciará la partida en cuanto haya jugadores.
                       </p>
                     </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold">
-                      <Users size={16} className="text-cyber-cyan" /> {roomState.players.length} jugadores
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold sm:gap-2 sm:px-4 sm:py-2 sm:text-sm">
+                      <Users size={14} className="text-cyber-cyan sm:hidden" />
+                      <Users size={16} className="hidden text-cyber-cyan sm:block" />
+                      {roomState.players.length} jugadores
                     </div>
                   </div>
                 )}
 
                 {/* Revelación de rol */}
                 {roomState.status === 'ROLE_REVEAL' && myRoleInfo && (
-                  <div className="flex min-h-0 flex-1 flex-col px-5 pb-6">
+                  <div className="flex min-h-0 flex-1 flex-col px-4 pb-5 sm:px-5 sm:pb-6 md:mx-auto md:w-full md:max-w-[480px]">
                     {myRoleInfo.role === 'CREWMATE' ? (
                       <>
                         <p className="text-xs font-bold uppercase tracking-[2px] text-emerald-400">Tripulante</p>
-                        <h2 className="mt-1 text-lg font-bold text-muted">Tu palabra secreta</h2>
-                        <div className="mt-3 rounded-3xl border border-emerald-500/40 bg-linear-to-b from-emerald-500/10 to-transparent p-6 text-center">
+                        <h2 className="mt-1 text-base font-bold text-muted sm:text-lg">Tu palabra secreta</h2>
+                        <div className="mt-3 rounded-3xl border border-emerald-500/40 bg-linear-to-b from-emerald-500/10 to-transparent p-5 text-center sm:p-6">
                           <p className="text-xs uppercase tracking-[2px] text-muted">{myRoleInfo.category}</p>
-                          <p className="mt-2 wrap-break-word font-display text-3xl font-black tracking-tight text-emerald-400">
+                          <p className="mt-2 wrap-break-word font-display text-2xl font-black tracking-tight text-emerald-400 sm:text-3xl">
                             {myRoleInfo.word}
                           </p>
                         </div>
-                        <p className="mt-3 rounded-xl border-l-[3px] border-l-cyber-cyan bg-white/5 p-3 text-sm leading-relaxed text-muted">
+                        <p className="mt-3 rounded-xl border-l-[3px] border-l-cyber-cyan bg-white/5 p-2.5 text-xs leading-relaxed text-muted sm:p-3 sm:text-sm">
                           💡 Escribe una pista sutil. No se la pongas fácil al impostor.
                         </p>
                       </>
                     ) : (
                       <>
                         <p className="text-xs font-bold uppercase tracking-[2px] text-red-400">Impostor</p>
-                        <h2 className="mt-1 text-lg font-bold text-muted">No conoces la palabra</h2>
-                        <div className="mt-3 rounded-3xl border border-red-500/40 bg-linear-to-b from-red-500/10 to-transparent p-6 text-center">
-                          <Ghost size={40} className="mx-auto text-red-400" />
-                          <p className="mt-2 text-sm text-muted">{myRoleInfo.category}</p>
-                          <p className="mt-1 text-xl font-extrabold text-red-400">¿¿¿???</p>
+                        <h2 className="mt-1 text-base font-bold text-muted sm:text-lg">No conoces la palabra</h2>
+                        <div className="mt-3 rounded-3xl border border-red-500/40 bg-linear-to-b from-red-500/10 to-transparent p-5 text-center sm:p-6">
+                          <Ghost size={36} className="mx-auto text-red-400 sm:hidden" />
+                          <Ghost size={40} className="mx-auto hidden text-red-400 sm:block" />
+                          <p className="mt-2 text-xs text-muted sm:text-sm">{myRoleInfo.category}</p>
+                          <p className="mt-1 text-lg font-extrabold text-red-400 sm:text-xl">¿¿¿???</p>
                         </div>
-                        <p className="mt-3 rounded-xl border-l-[3px] border-l-red-500 bg-white/5 p-3 text-sm leading-relaxed text-muted">
+                        <p className="mt-3 rounded-xl border-l-[3px] border-l-red-500 bg-white/5 p-2.5 text-xs leading-relaxed text-muted sm:p-3 sm:text-sm">
                           🕵️ Disimula: escribe una pista ambigua y evita que te voten.
                         </p>
                       </>
@@ -448,27 +530,28 @@ export const PlayerView: React.FC = () => {
 
                 {/* Fase de pistas: el input es el protagonista */}
                 {roomState.status === 'HINT_PHASE' && (
-                  <div className="flex min-h-0 flex-1 flex-col px-5 pb-6 pt-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h2 className="text-lg font-extrabold">Escribe tu pista</h2>
+                  <div className="flex min-h-0 flex-1 flex-col px-4 pb-5 pt-3 sm:px-5 sm:pb-6 sm:pt-4 md:mx-auto md:w-full md:max-w-[520px]">
+                    <div className="mb-2.5 flex items-center justify-between sm:mb-3">
+                      <h2 className="text-base font-extrabold sm:text-lg">Escribe tu pista</h2>
                       {timerRing((roomState.timer / PHASE_SECONDS.HINT_PHASE) * 100)}
                     </div>
-                    <p className="mb-3 text-sm leading-relaxed text-muted">
+                    <p className="mb-2.5 text-xs leading-relaxed text-muted sm:mb-3 sm:text-sm">
                       1 o 2 palabras clave que revelen la palabra sin delatarla.
                     </p>
                     {me?.hasSubmittedHint ? (
-                      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                        <CheckCircle2 size={44} className="text-emerald-400" />
-                        <h3 className="text-lg font-extrabold">Pista enviada</h3>
-                        <p className="max-w-70 text-sm leading-relaxed text-muted">
+                      <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-center sm:gap-3">
+                        <CheckCircle2 size={40} className="text-emerald-400 sm:hidden" />
+                        <CheckCircle2 size={44} className="hidden text-emerald-400 sm:block" />
+                        <h3 className="text-base font-extrabold sm:text-lg">Pista enviada</h3>
+                        <p className="max-w-[260px] text-xs leading-relaxed text-muted sm:max-w-70 sm:text-sm">
                           Mira el proyector mientras todos escriben.
                         </p>
                       </div>
                     ) : (
-                      <form onSubmit={handleHintSubmit} className="flex min-h-0 flex-1 flex-col gap-3" noValidate>
+                      <form onSubmit={handleHintSubmit} className="flex min-h-0 flex-1 flex-col gap-2.5 sm:gap-3" noValidate>
                         <div className="relative min-h-0 flex-1">
                           <textarea
-                            className="input-base h-full resize-none leading-relaxed focus:border-cyber-purple focus:ring-purple-500/30"
+                            className="input-base h-full resize-none text-sm leading-relaxed focus:border-cyber-purple focus:ring-purple-500/30 sm:text-base"
                             rows={4}
                             maxLength={40}
                             placeholder="Ej. ciclos, incrementos, sprints..."
@@ -477,12 +560,14 @@ export const PlayerView: React.FC = () => {
                             required
                             autoFocus
                           />
-                          <span className="pointer-events-none absolute bottom-3 right-3 rounded-lg bg-cyber-card/85 px-1.5 py-0.5 text-[11px] font-bold text-muted">
+                          <span className="pointer-events-none absolute bottom-2.5 right-2.5 rounded-lg bg-cyber-card/85 px-1.5 py-0.5 text-[11px] font-bold text-muted sm:bottom-3 sm:right-3">
                             {hintInput.length}/40
                           </span>
                         </div>
-                        <button type="submit" className="btn-cta" disabled={!hintInput.trim()}>
-                          <Send size={18} /> ENVIAR PISTA
+                        <button type="submit" className="btn-cta text-sm sm:text-[15px]" disabled={!hintInput.trim()}>
+                          <Send size={16} className="sm:hidden" />
+                          <Send size={18} className="hidden sm:block" />
+                          ENVIAR PISTA
                         </button>
                       </form>
                     )}
