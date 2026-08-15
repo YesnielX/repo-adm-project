@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import gsap from 'gsap';
 import {
   ShieldAlert,
@@ -19,13 +20,16 @@ import {
   KeyRound,
   User,
   Eye,
-  Home
+  Home,
+  Lightbulb
 } from 'lucide-react';
 import { useGameSocket } from '../context/SocketContext';
 import { AVATAR_OPTIONS, AvatarIcon } from './AvatarIcon';
 import { QRScannerModal } from './QRScannerModal';
+import { play } from 'cuelume';
+import { playPhaseSound } from '../audio/gameSounds';
 
-const COLORS = ['#aa3bff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
+const COLORS = ['#a3e635', '#38bdf8', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 const PROFILE_STORAGE_KEY = 'codeimpostor_player_profile';
 const SESSION_STORAGE_KEY = 'codeimpostor_player_session';
 
@@ -45,7 +49,11 @@ const getSavedSession = (): { roomCode: string; token: string } | null => {
   }
 };
 
-export const PlayerView: React.FC = () => {
+interface PlayerViewProps {
+  roomParam?: string;
+}
+
+export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
   const {
     socket,
     roomState,
@@ -60,6 +68,7 @@ export const PlayerView: React.FC = () => {
     clearError,
     resetToLanding
   } = useGameSocket();
+  const navigate = useNavigate();
 
   // Perfil guardado en localStorage para que no haya que rellenar cada vez
   const savedProfile = React.useMemo(() => {
@@ -72,10 +81,7 @@ export const PlayerView: React.FC = () => {
   }, []);
 
   const [name, setName] = useState(savedProfile?.name || '');
-  const [roomCode, setRoomCode] = useState(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('room') || '';
-  });
+  const [roomCode, setRoomCode] = useState(roomParam);
   const [selectedAvatar, setSelectedAvatar] = useState(savedProfile?.avatar || AVATAR_OPTIONS[0].id);
   const [selectedColor, setSelectedColor] = useState(savedProfile?.color || COLORS[0]);
   const [hintInput, setHintInput] = useState('');
@@ -85,6 +91,15 @@ export const PlayerView: React.FC = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const autoRejoinAttemptedRef = useRef(false);
+  const prevStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const status = roomState?.status ?? null;
+    if (status && status !== prevStatusRef.current && prevStatusRef.current !== null) {
+      playPhaseSound(status);
+    }
+    prevStatusRef.current = status;
+  }, [roomState?.status]);
 
   // Reset del borrador al salir de la fase de pistas: ajustar estado durante
   // el render con guarda (patrón de React), sin setState en effects.
@@ -100,14 +115,17 @@ export const PlayerView: React.FC = () => {
     if (containerRef.current) {
       gsap.fromTo(
         containerRef.current,
-        { opacity: 0, y: 10 },
-        { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
+        { opacity: 0, y: 8 },
+        { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
       );
+    }
+
+    if (roomState?.status === 'GAME_OVER') {
+      play('success');
     }
   }, [roomState?.status]);
 
-  // Auto-rejoin: URL apunta a una sala y hay sesión guardada para esa sala
-  const roomParam = new URLSearchParams(window.location.search).get('room');
+  // Auto-rejoin: la URL apunta a una sala y hay sesión guardada para esa sala
   const hasMatchingSession = !!roomParam && !!savedProfile?.name && getSavedSession()?.roomCode === roomParam;
   const isAutoRejoining = !roomState && hasMatchingSession && !errorMessage;
 
@@ -168,6 +186,7 @@ export const PlayerView: React.FC = () => {
     setRoomCode('');
     clearError();
     resetToLanding();
+    navigate({ to: '/codeimpostor/unirse', search: {} });
   };
 
   const handleBackToHome = () => {
@@ -177,6 +196,7 @@ export const PlayerView: React.FC = () => {
   const confirmExit = () => {
     setShowExitModal(false);
     resetToLanding();
+    navigate({ to: '/codeimpostor/unirse', search: {} });
   };
 
   const me = roomState?.players.find((p) => p.id === myPlayerId);
@@ -187,19 +207,19 @@ export const PlayerView: React.FC = () => {
   const timerRing = (pct: number) => (
     <span
       className="relative flex h-10 w-10 flex-none items-center justify-center rounded-full"
-      style={{ background: `conic-gradient(#00f2fe ${pct}%, rgba(255,255,255,0.08) 0)` }}
+      style={{ background: `conic-gradient(#a3e635 ${pct}%, rgba(255,255,255,0.08) 0)` }}
     >
-      <span className="absolute inset-1 rounded-full bg-cyber-card"></span>
+      <span className="absolute inset-1 rounded-full bg-panel"></span>
       <span className="relative text-sm font-extrabold">{roomState?.timer}</span>
     </span>
   );
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-cyber-dark text-white" ref={containerRef}>
+    <div className="flex h-dvh flex-col overflow-hidden bg-surface text-white" ref={containerRef}>
       {/* Reconexión */}
       {!roomState && isAutoRejoining && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <Loader2 size={36} className="animate-spin text-cyber-cyan" />
+          <Loader2 size={36} className="animate-spin text-accent" />
           <div>
             <h2 className="text-lg font-bold">Reconectando</h2>
             <p className="mt-1 text-sm leading-relaxed text-muted">Recuperando tu rol, pistas y progreso.</p>
@@ -210,19 +230,21 @@ export const PlayerView: React.FC = () => {
       {/* Formulario de unión */}
       {!roomState && !isAutoRejoining && (
         <div className="flex h-full flex-col overflow-hidden px-4 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6 md:mx-auto md:w-full md:max-w-[480px]">
-          {/* Botón volver mejorado */}
+          {/* Botón volver */}
           <button
             type="button"
             onClick={() => window.location.href = '/'}
-            className="group absolute left-4 top-5 flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-bold text-cyber-cyan shadow-[0_0_20px_rgba(0,242,254,0.15)] transition-all hover:-translate-x-1 hover:border-cyan-400/50 hover:bg-cyan-400/20 hover:shadow-[0_0_30px_rgba(0,242,254,0.3)] sm:left-6 sm:top-6 sm:px-4 sm:py-2.5"
+            className="group absolute left-4 top-5 flex items-center gap-2 rounded-lg border border-line bg-raised px-3 py-2 text-sm font-bold text-muted transition-colors hover:border-white/25 hover:text-white sm:left-6 sm:top-6 sm:px-4 sm:py-2.5"
             title="Volver al inicio"
+            data-cuelume-press
+            data-cuelume-release
           >
-            <Home size={18} className="transition-transform group-hover:-translate-x-0.5" />
+            <Home size={18} />
             <span className="hidden sm:inline">Volver</span>
           </button>
 
           <div className="mb-4 text-center sm:mb-5">
-            <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-2xl border border-purple-500/40 bg-purple-500/10 text-cyber-purple sm:h-12 sm:w-12">
+            <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-lg border border-accent/40 bg-accent/10 text-accent sm:h-12 sm:w-12">
               <ShieldAlert size={22} className="sm:hidden" />
               <ShieldAlert size={24} className="hidden sm:block" />
             </div>
@@ -231,7 +253,7 @@ export const PlayerView: React.FC = () => {
           </div>
 
           {errorMessage && (
-            <div className="mb-5 flex flex-col gap-2.5 rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-red-300 sm:mb-6">
+            <div className="mb-5 flex flex-col gap-2.5 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-red-300 sm:mb-6">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle size={18} className="flex-shrink-0 sm:hidden" />
                 <AlertTriangle size={20} className="hidden flex-shrink-0 sm:block" />
@@ -243,8 +265,10 @@ export const PlayerView: React.FC = () => {
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11.5px] font-semibold text-white transition hover:border-cyber-cyan hover:bg-white/10 sm:px-3 sm:text-[12.5px]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11.5px] font-semibold text-white transition-colors hover:border-white/25 hover:bg-white/10 sm:px-3 sm:text-[12.5px]"
                   onClick={handleClearExpiredRoom}
+                  data-cuelume-press
+                  data-cuelume-release
                 >
                   <RotateCcw size={13} className="sm:hidden" />
                   <RotateCcw size={14} className="hidden sm:block" />
@@ -252,9 +276,11 @@ export const PlayerView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-muted transition hover:bg-white/10 hover:text-white sm:h-7.5 sm:w-7.5"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-muted transition-colors hover:bg-white/10 hover:text-white sm:h-7.5 sm:w-7.5"
                   onClick={clearError}
                   aria-label="Cerrar"
+                  data-cuelume-press
+                  data-cuelume-release
                 >
                   <X size={15} className="sm:hidden" />
                   <X size={16} className="hidden sm:block" />
@@ -278,8 +304,10 @@ export const PlayerView: React.FC = () => {
                 </label>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-cyber-cyan transition hover:opacity-80"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-accent transition-colors hover:opacity-80"
                   onClick={() => setShowScanner(true)}
+                  data-cuelume-press
+                  data-cuelume-release
                 >
                   <Camera size={14} /> Escanear
                 </button>
@@ -299,9 +327,11 @@ export const PlayerView: React.FC = () => {
                 />
                 <button
                   type="button"
-                  className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl bg-white/5 text-cyber-cyan transition hover:bg-cyan-400/15"
+                  className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg bg-white/5 text-muted transition-colors hover:bg-accent/10 hover:text-accent"
                   onClick={() => setShowScanner(true)}
                   title="Escanear con cámara"
+                  data-cuelume-press
+                  data-cuelume-release
                 >
                   <QrCode size={20} />
                 </button>
@@ -335,16 +365,17 @@ export const PlayerView: React.FC = () => {
                     key={av.id}
                     type="button"
                     className={`relative flex aspect-square items-center justify-center rounded-lg border transition ${selectedAvatar === av.id
-                        ? 'border-cyber-cyan bg-cyan-400/10 text-white shadow-[0_0_14px_rgba(0,242,254,0.4)]'
-                        : 'border-white/10 bg-white/5 text-muted hover:bg-white/10 hover:text-white'
+                        ? 'border-accent bg-accent/10 text-white'
+                        : 'border-line bg-white/5 text-muted hover:bg-white/10 hover:text-white'
                       }`}
                     onClick={() => setSelectedAvatar(av.id)}
                     title={av.label}
+                    data-cuelume-toggle
                   >
                     <av.icon size={14} className="sm:hidden" />
                     <av.icon size={16} className="hidden sm:block" />
                     {selectedAvatar === av.id && (
-                      <span className="absolute -right-0.5 -top-0.5 text-cyber-cyan drop-shadow-[0_0_4px_rgba(0,242,254,0.4)] sm:-right-1 sm:-top-1">
+                      <span className="absolute -right-0.5 -top-0.5 text-accent sm:-right-1 sm:-top-1">
                         <CheckCircle2 size={10} className="sm:hidden" />
                         <CheckCircle2 size={11} className="hidden sm:block" />
                       </span>
@@ -363,12 +394,13 @@ export const PlayerView: React.FC = () => {
                     type="button"
                     className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition sm:h-9 sm:w-9 ${
                       selectedColor === c
-                        ? 'ring-2 ring-white ring-offset-2 ring-offset-cyber-dark'
+                        ? 'ring-2 ring-white ring-offset-2 ring-offset-surface'
                         : 'border-[3px] border-white/25 hover:scale-105'
                       }`}
                     style={{ backgroundColor: c }}
                     onClick={() => setSelectedColor(c)}
                     aria-label={`Color ${c}`}
+                    data-cuelume-toggle
                   >
                     {selectedColor === c && <CheckCircle2 size={13} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] sm:hidden" />}
                     {selectedColor === c && <CheckCircle2 size={14} className="hidden text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] sm:block" />}
@@ -377,7 +409,7 @@ export const PlayerView: React.FC = () => {
               </div>
             </div>
 
-            <button type="submit" className="btn-cta text-sm sm:text-[15px]" disabled={isJoining}>
+            <button type="submit" className="btn-cta text-sm sm:text-[15px]" disabled={isJoining} data-cuelume-press="pulse" data-cuelume-release>
               {isJoining ? <Loader2 size={18} className="animate-spin sm:hidden" /> : <Smartphone size={18} className="sm:hidden" />}
               {isJoining ? <Loader2 size={20} className="hidden animate-spin sm:block" /> : <Smartphone size={20} className="hidden sm:block" />}
               {isJoining ? 'ENTRANDO...' : 'ENTRAR A LA SALA'}
@@ -393,9 +425,9 @@ export const PlayerView: React.FC = () => {
           {/* Modal de confirmación de salida */}
           {showExitModal && (
             <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-              <div className="glass-card w-full max-w-sm p-5 sm:p-6">
+              <div className="panel w-full max-w-sm p-5 sm:p-6">
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10 sm:h-12 sm:w-12">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 sm:h-12 sm:w-12">
                     <AlertTriangle size={20} className="text-red-400 sm:hidden" />
                     <AlertTriangle size={24} className="hidden text-red-400 sm:block" />
                   </div>
@@ -410,14 +442,18 @@ export const PlayerView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowExitModal(false)}
-                    className="flex-1 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10 sm:px-5 sm:py-3 sm:text-base"
+                    className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10 sm:px-5 sm:py-3 sm:text-base"
+                    data-cuelume-press
+                    data-cuelume-release
                   >
                     Cancelar
                   </button>
                   <button
                     type="button"
                     onClick={confirmExit}
-                    className="flex-1 rounded-xl border border-red-500/40 bg-red-500/15 px-4 py-2.5 text-sm font-bold text-red-400 transition hover:bg-red-500/25 sm:px-5 sm:py-3 sm:text-base"
+                    className="flex-1 rounded-lg border border-red-500/40 bg-red-500/15 px-4 py-2.5 text-sm font-bold text-red-400 transition-colors hover:bg-red-500/25 sm:px-5 sm:py-3 sm:text-base"
+                    data-cuelume-press
+                    data-cuelume-release
                   >
                     Salir
                   </button>
@@ -426,20 +462,22 @@ export const PlayerView: React.FC = () => {
             </div>
           )}
 
-          <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-white/10 bg-cyber-card/70 px-3 py-2.5 backdrop-blur-xl sm:gap-2.5 sm:px-4 sm:py-3">
+          <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-line bg-surface/90 px-3 py-2.5 backdrop-blur-sm sm:gap-2.5 sm:px-4 sm:py-3">
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
               <button
                 type="button"
                 onClick={handleBackToHome}
-                className="group flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-400/10 text-cyber-cyan shadow-[0_0_15px_rgba(0,242,254,0.15)] transition-all hover:border-cyan-400/50 hover:bg-cyan-400/20 hover:shadow-[0_0_25px_rgba(0,242,254,0.3)] sm:h-9 sm:w-9"
+                className="group flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-line bg-raised text-muted transition-colors hover:border-white/25 hover:text-white sm:h-9 sm:w-9"
                 title="Volver al inicio"
+                data-cuelume-press
+                data-cuelume-release
               >
-                <Home size={15} className="transition-transform group-hover:-translate-x-0.5 sm:hidden" />
-                <Home size={16} className="hidden transition-transform group-hover:-translate-x-0.5 sm:block" />
+                <Home size={15} className="sm:hidden" />
+                <Home size={16} className="hidden sm:block" />
               </button>
               <span
-                className="flex h-8 w-8 flex-none items-center justify-center rounded-xl border border-white/20 shadow-[0_0_12px_rgba(0,0,0,0.35)] sm:h-9 sm:w-9"
-                style={{ backgroundColor: me?.color || '#aa3bff' }}
+                className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-white/20 shadow-[0_4px_12px_rgba(0,0,0,0.35)] sm:h-9 sm:w-9"
+                style={{ backgroundColor: me?.color || '#a3e635' }}
               >
                 <AvatarIcon avatarId={me?.avatar || 'terminal'} size={16} isBot={me?.isBot} className="sm:hidden" />
                 <AvatarIcon avatarId={me?.avatar || 'terminal'} size={18} isBot={me?.isBot} className="hidden sm:block" />
@@ -447,11 +485,11 @@ export const PlayerView: React.FC = () => {
               <span className="truncate text-sm font-bold sm:text-[15px]">{me?.name}</span>
             </div>
             <div className="flex flex-none items-center gap-1.5 sm:gap-2">
-              <span className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-bold sm:gap-1.5 sm:px-2.5 sm:py-1.5 sm:text-xs">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-line bg-white/5 px-2 py-1 text-[11px] font-bold sm:gap-1.5 sm:px-2.5 sm:py-1.5 sm:text-xs">
                 #{roomState.roomCode}
               </span>
               {roomState.status !== 'LOBBY' && roomState.status !== 'GAME_OVER' && (
-                <span className="inline-flex items-center gap-1 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[11px] font-bold text-amber-300 sm:gap-1.5 sm:px-2.5 sm:py-1.5 sm:text-xs">
+                <span className="inline-flex items-center gap-1 rounded-lg border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[11px] font-bold text-amber-300 sm:gap-1.5 sm:px-2.5 sm:py-1.5 sm:text-xs">
                   RONDA {roomState.round}/{roomState.maxRounds}
                 </span>
               )}
@@ -462,7 +500,7 @@ export const PlayerView: React.FC = () => {
             {/* Espectador */}
             {me?.eliminated ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-                <div className="flex h-16 w-16 animate-[pv-pulse_1.8s_ease-in-out_infinite] items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 text-red-400">
+                <div className="flex h-16 w-16 animate-[pv-pulse_1.8s_ease-in-out_infinite] items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10 text-red-400">
                   <Eye size={28} />
                 </div>
                 <h2 className="text-xl font-extrabold">Fuiste expulsado</h2>
@@ -475,7 +513,7 @@ export const PlayerView: React.FC = () => {
                 {/* LOBBY: esperando */}
                 {roomState.status === 'LOBBY' && (
                   <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center sm:gap-4 sm:px-6">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/25 bg-cyan-400/5 text-cyber-cyan sm:h-16 sm:w-16">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-accent/25 bg-accent/5 text-accent sm:h-16 sm:w-16">
                       <Clock size={26} className="animate-[pv-pulse_1.8s_ease-in-out_infinite] sm:hidden" />
                       <Clock size={30} className="hidden animate-[pv-pulse_1.8s_ease-in-out_infinite] sm:block" />
                     </div>
@@ -485,9 +523,9 @@ export const PlayerView: React.FC = () => {
                         El proyector iniciará la partida en cuanto haya jugadores.
                       </p>
                     </div>
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold sm:gap-2 sm:px-4 sm:py-2 sm:text-sm">
-                      <Users size={14} className="text-cyber-cyan sm:hidden" />
-                      <Users size={16} className="hidden text-cyber-cyan sm:block" />
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white/5 px-3 py-1.5 text-xs font-bold sm:gap-2 sm:px-4 sm:py-2 sm:text-sm">
+                      <Users size={14} className="text-accent sm:hidden" />
+                      <Users size={16} className="hidden text-accent sm:block" />
                       {roomState.players.length} jugadores
                     </div>
                   </div>
@@ -500,28 +538,30 @@ export const PlayerView: React.FC = () => {
                       <>
                         <p className="text-xs font-bold uppercase tracking-[2px] text-emerald-400">Tripulante</p>
                         <h2 className="mt-1 text-base font-bold text-muted sm:text-lg">Tu palabra secreta</h2>
-                        <div className="mt-3 rounded-3xl border border-emerald-500/40 bg-linear-to-b from-emerald-500/10 to-transparent p-5 text-center sm:p-6">
+                        <div className="mt-3 rounded-xl border border-emerald-500/40 bg-linear-to-b from-emerald-500/10 to-transparent p-5 text-center sm:p-6">
                           <p className="text-xs uppercase tracking-[2px] text-muted">{myRoleInfo.category}</p>
                           <p className="mt-2 wrap-break-word font-display text-2xl font-black tracking-tight text-emerald-400 sm:text-3xl">
                             {myRoleInfo.word}
                           </p>
                         </div>
-                        <p className="mt-3 rounded-xl border-l-[3px] border-l-cyber-cyan bg-white/5 p-2.5 text-xs leading-relaxed text-muted sm:p-3 sm:text-sm">
-                          💡 Escribe una pista sutil. No se la pongas fácil al impostor.
+                        <p className="mt-3 flex items-start gap-2 rounded-lg border-l-2 border-l-accent bg-raised p-3 text-xs leading-relaxed text-muted sm:text-sm">
+                          <Lightbulb size={15} className="mt-0.5 flex-none text-accent" />
+                          <span>Escribe una pista sutil. No se la pongas fácil al impostor.</span>
                         </p>
                       </>
                     ) : (
                       <>
                         <p className="text-xs font-bold uppercase tracking-[2px] text-red-400">Impostor</p>
                         <h2 className="mt-1 text-base font-bold text-muted sm:text-lg">No conoces la palabra</h2>
-                        <div className="mt-3 rounded-3xl border border-red-500/40 bg-linear-to-b from-red-500/10 to-transparent p-5 text-center sm:p-6">
+                        <div className="mt-3 rounded-xl border border-red-500/40 bg-linear-to-b from-red-500/10 to-transparent p-5 text-center sm:p-6">
                           <Ghost size={36} className="mx-auto text-red-400 sm:hidden" />
                           <Ghost size={40} className="mx-auto hidden text-red-400 sm:block" />
                           <p className="mt-2 text-xs text-muted sm:text-sm">{myRoleInfo.category}</p>
                           <p className="mt-1 text-lg font-extrabold text-red-400 sm:text-xl">¿¿¿???</p>
                         </div>
-                        <p className="mt-3 rounded-xl border-l-[3px] border-l-red-500 bg-white/5 p-2.5 text-xs leading-relaxed text-muted sm:p-3 sm:text-sm">
-                          🕵️ Disimula: escribe una pista ambigua y evita que te voten.
+                        <p className="mt-3 flex items-start gap-2 rounded-lg border-l-2 border-l-red-500 bg-raised p-3 text-xs leading-relaxed text-muted sm:text-sm">
+                          <Ghost size={15} className="mt-0.5 flex-none text-red-400" />
+                          <span>Disimula: escribe una pista ambigua y evita que te voten.</span>
                         </p>
                       </>
                     )}
@@ -551,7 +591,7 @@ export const PlayerView: React.FC = () => {
                       <form onSubmit={handleHintSubmit} className="flex min-h-0 flex-1 flex-col gap-2.5 sm:gap-3" noValidate>
                         <div className="relative min-h-0 flex-1">
                           <textarea
-                            className="input-base h-full resize-none text-sm leading-relaxed focus:border-cyber-purple focus:ring-purple-500/30 sm:text-base"
+                            className="input-base h-full resize-none text-sm leading-relaxed sm:text-base"
                             rows={4}
                             maxLength={40}
                             placeholder="Ej. ciclos, incrementos, sprints..."
@@ -560,11 +600,11 @@ export const PlayerView: React.FC = () => {
                             required
                             autoFocus
                           />
-                          <span className="pointer-events-none absolute bottom-2.5 right-2.5 rounded-lg bg-cyber-card/85 px-1.5 py-0.5 text-[11px] font-bold text-muted sm:bottom-3 sm:right-3">
+                          <span className="pointer-events-none absolute bottom-2.5 right-2.5 rounded-lg bg-raised px-1.5 py-0.5 text-[11px] font-bold text-muted sm:bottom-3 sm:right-3">
                             {hintInput.length}/40
                           </span>
                         </div>
-                        <button type="submit" className="btn-cta text-sm sm:text-[15px]" disabled={!hintInput.trim()}>
+                        <button type="submit" className="btn-cta text-sm sm:text-[15px]" disabled={!hintInput.trim()} data-cuelume-press="pulse" data-cuelume-release>
                           <Send size={16} className="sm:hidden" />
                           <Send size={18} className="hidden sm:block" />
                           ENVIAR PISTA
@@ -584,13 +624,13 @@ export const PlayerView: React.FC = () => {
                           Lee las pistas. ¿Quién no conoce la palabra?
                         </p>
                       </div>
-                      <span className="inline-flex flex-none items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/5 px-2.5 py-1.5 text-xs font-bold text-cyber-cyan">
+                      <span className="inline-flex flex-none items-center gap-1 rounded-full border border-line bg-raised px-2.5 py-1.5 text-xs font-bold text-muted">
                         <Clock size={13} /> {roomState.timer}s
                       </span>
                     </div>
                     <div className="grid min-h-0 flex-1 content-start grid-cols-2 gap-2 overflow-y-auto pr-0.5">
                       {roomState.players.map((p) => (
-                        <div key={p.id} className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                        <div key={p.id} className="rounded-lg border border-line bg-white/5 p-2.5">
                           <p className="truncate text-xs font-semibold">{p.name}</p>
                           <p className="mt-1 line-clamp-3 wrap-break-word text-xs leading-snug text-white/90">
                             "{p.hint || 'Sin pista'}"
@@ -627,14 +667,16 @@ export const PlayerView: React.FC = () => {
                             <button
                               key={p.id}
                               type="button"
-                              className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${p.connected && !p.eliminated
-                                  ? 'border-white/10 bg-white/5 hover:translate-x-1 hover:border-cyber-purple hover:bg-purple-500/10'
-                                  : 'border-white/10 bg-white/5'
+                              className={`flex w-full items-center gap-3 rounded-lg border p-2.5 text-left text-white transition disabled:cursor-not-allowed disabled:opacity-45 ${p.connected && !p.eliminated
+                                  ? 'border-line bg-white/5 hover:border-accent hover:bg-accent/10'
+                                  : 'border-line bg-white/5'
                                 }`}
                               onClick={() => handleVote(p.id)}
                               disabled={!p.connected || p.eliminated}
+                              data-cuelume-press
+                              data-cuelume-release
                             >
-                              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-white/20" style={{ backgroundColor: p.color }}>
+                              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-white/20" style={{ backgroundColor: p.color }}>
                                 <AvatarIcon avatarId={p.avatar} size={18} isBot={p.isBot} />
                               </span>
                               <span className="flex-1 truncate text-[14.5px] font-semibold">{p.name}</span>
@@ -653,10 +695,12 @@ export const PlayerView: React.FC = () => {
 
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-white/15 p-3 text-left text-white opacity-80 transition hover:bg-white/10"
+                          className="flex w-full items-center gap-3 rounded-lg border border-dashed border-line p-3 text-left text-white opacity-80 transition-colors hover:bg-white/10"
                           onClick={() => handleVote('SKIP')}
+                          data-cuelume-press
+                          data-cuelume-release
                         >
-                          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-white/20 bg-white/10 text-muted">
+                          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-line bg-white/10 text-muted">
                             <X size={16} />
                           </span>
                           <span className="flex-1 truncate text-[14.5px] font-semibold">Saltar voto / Nadie</span>
@@ -671,7 +715,7 @@ export const PlayerView: React.FC = () => {
                   <div className="flex min-h-0 flex-1 flex-col px-5 pb-6 pt-4">
                     <div className="mb-3 flex items-center justify-between">
                       <h2 className="text-lg font-extrabold">Votos</h2>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/5 px-2.5 py-1.5 text-xs font-bold text-cyber-cyan">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-line bg-raised px-2.5 py-1.5 text-xs font-bold text-muted">
                         <Clock size={13} /> {roomState.timer}s
                       </span>
                     </div>
@@ -684,7 +728,7 @@ export const PlayerView: React.FC = () => {
                           return (
                             <div
                               key={p.id}
-                              className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition ${revealEjected && ejected ? 'border-red-500/60 bg-red-500/15' : 'border-white/10 bg-white/5'
+                              className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 transition ${revealEjected && ejected ? 'border-red-500/60 bg-red-500/15' : 'border-line bg-white/5'
                                 }`}
                             >
                               <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full" style={{ backgroundColor: p.color }}>
@@ -704,7 +748,7 @@ export const PlayerView: React.FC = () => {
                         })}
                     </div>
                     {revealEjected && (
-                      <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-center">
+                      <div className="mt-3 rounded-lg border border-line bg-white/5 px-4 py-2.5 text-center">
                         {roomState.ejectedPlayer ? (
                           <p className="text-sm font-bold text-white">
                             {roomState.ejectedPlayer.name} fue expulsado
@@ -734,8 +778,10 @@ export const PlayerView: React.FC = () => {
                           <button
                             key={opt}
                             type="button"
-                            className="rounded-2xl border border-white/10 bg-white/5 p-5 text-base font-bold text-white transition hover:-translate-y-0.5 hover:border-cyber-cyan hover:bg-cyan-400/10 hover:shadow-[0_0_18px_rgba(0,242,254,0.4)]"
+                            className="rounded-lg border border-line bg-white/5 p-5 text-base font-bold text-white transition-colors hover:border-accent hover:bg-accent/10"
                             onClick={() => submitImpostorGuess(opt)}
+                            data-cuelume-press
+                            data-cuelume-release
                           >
                             {opt}
                           </button>
@@ -744,7 +790,7 @@ export const PlayerView: React.FC = () => {
                     </div>
                   ) : (
                     <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-                      <Clock size={36} className="animate-[pv-pulse_1.6s_ease-in-out_infinite] text-cyber-cyan" />
+                      <Clock size={36} className="animate-[pv-pulse_1.6s_ease-in-out_infinite] text-accent" />
                       <h2 className="text-xl font-extrabold">El impostor elige...</h2>
                       <p className="max-w-75 text-sm leading-relaxed text-muted">
                         Fue descubierto y está eligiendo una palabra.
@@ -756,7 +802,7 @@ export const PlayerView: React.FC = () => {
                 {/* Fin de la partida */}
                 {roomState.status === 'GAME_OVER' && (
                   <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-                    <div className="flex h-20 w-20 animate-[pv-pop_0.45s_ease_both] items-center justify-center rounded-3xl border border-amber-400/40 bg-amber-400/10 text-amber-300">
+                    <div className="flex h-20 w-20 animate-[pv-pop_0.45s_ease_both] items-center justify-center rounded-xl border border-amber-400/40 bg-amber-400/10 text-amber-300">
                       <Trophy size={40} />
                     </div>
                     {roomState.winner === 'IMPOSTOR' ? (

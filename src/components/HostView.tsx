@@ -15,16 +15,17 @@ import {
   Crown,
   CheckCircle2,
   X,
-  Sparkles,
   MessageSquare,
   Home,
   AlertTriangle
 } from 'lucide-react';
 import { useGameSocket } from '../context/SocketContext';
 import { AvatarIcon } from './AvatarIcon';
+import { play } from 'cuelume';
+import { playPhaseSound } from '../audio/gameSounds';
 
 export const HostView: React.FC = () => {
-  const { roomState, localIp, startGame, addBots, resetGame } = useGameSocket();
+  const { roomState, localIp, localIpCandidates, setLocalIp, startGame, addBots, resetGame } = useGameSocket();
   const stageRef = useRef<HTMLDivElement>(null);
   const [showExitModal, setShowExitModal] = useState(false);
 
@@ -36,14 +37,22 @@ export const HostView: React.FC = () => {
     window.location.href = '/';
   };
 
+  const prevStatusRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (stageRef.current) {
       gsap.fromTo(
         stageRef.current,
-        { opacity: 0, scale: 0.95, y: 15 },
-        { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: 'back.out(1.2)' }
+        { opacity: 0, y: 12 },
+        { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
       );
     }
+
+    const status = roomState?.status ?? null;
+    if (status && status !== prevStatusRef.current && prevStatusRef.current !== null) {
+      playPhaseSound(status);
+    }
+    prevStatusRef.current = status;
 
     if (roomState?.status === 'GAME_OVER') {
       confetti({
@@ -51,24 +60,28 @@ export const HostView: React.FC = () => {
         spread: 80,
         origin: { y: 0.6 }
       });
+      play('success');
     }
   }, [roomState?.status]);
 
   if (!roomState) return null;
 
-  const joinUrl = localIp
-    ? `http://${localIp}:5173/?room=${roomState.roomCode}`
-    : `${window.location.protocol}//${window.location.host}/?room=${roomState.roomCode}`;
+  // IP efectiva del QR: la elegida por el host, o la primera candidata como respaldo.
+  const effectiveIp = localIp || localIpCandidates[0] || null;
+
+  const joinUrl = effectiveIp && effectiveIp !== 'localhost'
+    ? `http://${effectiveIp}:5173/codeimpostor/unirse?room=${roomState.roomCode}`
+    : `${window.location.protocol}//${window.location.host}/codeimpostor/unirse?room=${roomState.roomCode}`;
 
   const timerRingClass =
     roomState.status === 'VOTING'
       ? 'border-red-500 bg-red-500/15'
       : roomState.status === 'GUESS_PHASE'
         ? 'border-amber-400 bg-amber-400/15'
-        : 'border-cyber-purple bg-purple-500/15';
+        : 'border-accent bg-accent/10';
 
   const botBtnClass =
-    'inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/40 bg-cyan-400/15 px-4 py-3 text-sm font-bold text-cyber-cyan transition hover:-translate-y-0.5 hover:bg-cyan-400/30';
+    'inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-4 py-3 text-sm font-bold text-accent transition-colors hover:bg-accent/20';
 
   // En la escena de votos, el expulsado se revela en la segunda mitad.
   const revealEjected = roomState.status === 'EJECTION' && roomState.timer <= 4;
@@ -78,9 +91,9 @@ export const HostView: React.FC = () => {
       {/* Modal de confirmación de salida */}
       {showExitModal && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-          <div className="glass-card w-full max-w-md p-6">
+          <div className="panel w-full max-w-md p-6">
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10">
                 <AlertTriangle size={24} className="text-red-400" />
               </div>
               <h3 className="text-xl font-bold">¿Salir de la sala?</h3>
@@ -92,14 +105,18 @@ export const HostView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowExitModal(false)}
-                className="flex-1 rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-bold text-white transition hover:bg-white/10"
+                className="flex-1 rounded-lg border border-white/15 bg-white/5 px-5 py-3 font-bold text-white transition-colors hover:bg-white/10"
+                data-cuelume-press
+                data-cuelume-release
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={confirmExit}
-                className="flex-1 rounded-xl border border-red-500/40 bg-red-500/15 px-5 py-3 font-bold text-red-400 transition hover:bg-red-500/25"
+                className="flex-1 rounded-lg border border-red-500/40 bg-red-500/15 px-5 py-3 font-bold text-red-400 transition-colors hover:bg-red-500/25"
+                data-cuelume-press
+                data-cuelume-release
               >
                 Salir
               </button>
@@ -107,27 +124,29 @@ export const HostView: React.FC = () => {
           </div>
         </div>
       )}
-      <header className="mb-8 flex flex-col items-start justify-between gap-3 border-b border-white/10 pb-6 sm:flex-row sm:items-center">
+      <header className="mb-8 flex flex-col items-start justify-between gap-3 border-b border-line pb-6 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3.5">
-          <ShieldAlert className="text-cyber-purple" size={36} />
-          <h1 className="text-[28px] font-black tracking-wide">CODE IMPOSTOR</h1>
+          <ShieldAlert className="text-accent" size={36} />
+          <h1 className="font-display text-[30px] font-bold tracking-wide">CODE IMPOSTOR</h1>
         </div>
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
           <button
             type="button"
             onClick={handleBackToHome}
-            className="group inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2.5 text-sm font-bold text-cyber-cyan shadow-[0_0_20px_rgba(0,242,254,0.15)] transition-all hover:-translate-x-1 hover:border-cyan-400/50 hover:bg-cyan-400/20 hover:shadow-[0_0_30px_rgba(0,242,254,0.3)] sm:px-5 sm:py-3"
+            className="inline-flex items-center gap-2 rounded-lg border border-line bg-raised px-4 py-2.5 text-sm font-bold text-muted transition-colors hover:border-white/25 hover:text-white sm:px-5 sm:py-3"
             title="Volver al inicio"
+            data-cuelume-press
+            data-cuelume-release
           >
-            <Home size={18} className="transition-transform group-hover:-translate-x-0.5" />
+            <Home size={18} />
             <span>Volver</span>
           </button>
           <div className="text-left sm:text-right">
-            <span className="block text-xs tracking-wider text-muted">PROYECTOR HOST</span>
+            <span className="block text-xs tracking-wider text-muted">Proyector</span>
             <div className="flex items-center justify-start gap-2.5 sm:justify-end">
-              <h2 className="font-display text-[36px] leading-none text-cyber-cyan">#{roomState.roomCode}</h2>
+              <h2 className="text-[38px] font-black leading-none text-accent">#{roomState.roomCode}</h2>
               {roomState.status !== 'LOBBY' && roomState.status !== 'GAME_OVER' && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-xs font-bold text-amber-300">
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-2.5 py-1.5 text-xs font-bold text-amber-300">
                   RONDA {roomState.round}/{roomState.maxRounds}
                 </span>
               )}
@@ -139,21 +158,38 @@ export const HostView: React.FC = () => {
       {/* LOBBY */}
       {roomState.status === 'LOBBY' && (
         <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(280px,340px)_1fr] lg:gap-8">
-          <div className="glass-card mx-auto flex w-full max-w-[340px] flex-col items-center gap-4 p-5 text-center sm:p-6 lg:mx-0">
+          <div className="panel mx-auto flex w-full max-w-[340px] flex-col items-center gap-4 p-5 text-center sm:p-6 lg:mx-0">
             <div className="flex items-center gap-2">
-              <QrCode size={20} className="text-cyber-cyan" />
-              <h3 className="text-sm tracking-wide text-cyber-cyan">¡ESCANEA CON TU MÓVIL!</h3>
+              <QrCode size={20} className="text-accent" />
+              <h3 className="text-sm tracking-wide text-accent">ESCANEA CON TU MÓVIL</h3>
             </div>
-            <div className="rounded-2xl bg-white p-4 shadow-[0_0_25px_rgba(255,255,255,0.2)]">
+            <div className="rounded-lg border border-line bg-white p-4">
               <QRCodeSVG value={joinUrl} size={190} level="H" includeMargin />
             </div>
-            <p className="break-all font-display text-[13px] text-muted">{joinUrl}</p>
+            <p className="break-all text-[13px] text-muted">{joinUrl}</p>
+            {localIpCandidates.length > 1 && (
+              <label className="flex w-full items-center justify-between gap-3">
+                <span className="text-[11px] tracking-wide text-muted">IP del QR:</span>
+                <select
+                  value={effectiveIp ?? ''}
+                  onChange={(e) => setLocalIp(e.target.value)}
+                  className="w-auto max-w-[60%] rounded-md border border-line bg-raised px-2 py-1 text-[11px] font-semibold text-white outline-none transition-colors focus:border-accent"
+                  data-cuelume-toggle
+                >
+                  {localIpCandidates.map((ip) => (
+                    <option key={ip} value={ip}>
+                      {ip}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3.5 py-1.5 text-xs text-emerald-400">
               <Wifi size={14} /> Wi-Fi Local
             </span>
           </div>
 
-          <div className="glass-card flex flex-col p-5 sm:p-6">
+          <div className="panel flex flex-col p-5 sm:p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-6">
               <h3 className="text-base font-bold sm:text-lg">JUGADORES CONECTADOS ({roomState.players.length})</h3>
               <div className="flex flex-wrap items-center gap-2">
@@ -162,24 +198,28 @@ export const HostView: React.FC = () => {
                   className={botBtnClass}
                   onClick={() => addBots(3)}
                   title="Agregar 3 bots de práctica"
+                  data-cuelume-press
+                  data-cuelume-release
                 >
                   <Bot size={18} /> +3
                 </button>
-                <button type="button" className={botBtnClass} onClick={() => addBots(20)} title="Agregar 20 bots">
+                <button type="button" className={botBtnClass} onClick={() => addBots(20)} title="Agregar 20 bots" data-cuelume-press data-cuelume-release>
                   +20
                 </button>
-                <button type="button" className={botBtnClass} onClick={() => addBots(30)} title="Agregar 30 bots">
+                <button type="button" className={botBtnClass} onClick={() => addBots(30)} title="Agregar 30 bots" data-cuelume-press data-cuelume-release>
                   +30
                 </button>
-                <button type="button" className={botBtnClass} onClick={() => addBots(50)} title="Agregar 50 bots">
+                <button type="button" className={botBtnClass} onClick={() => addBots(50)} title="Agregar 50 bots" data-cuelume-press data-cuelume-release>
                   +50
                 </button>
 
                 <button
                   type="button"
-                  className="inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-linear-to-r from-cyber-purple to-[#7c3aed] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_15px_rgba(170,59,255,0.5)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(170,59,255,0.5)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-7 sm:py-3.5 sm:text-base"
+                  className="inline-flex w-full items-center justify-center gap-2.5 rounded-lg bg-accent px-5 py-3 text-sm font-bold tracking-wide text-surface transition-colors hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-7 sm:py-3.5 sm:text-base"
                   disabled={roomState.players.length < 3}
                   onClick={startGame}
+                  data-cuelume-press="pulse"
+                  data-cuelume-release
                 >
                   <Play size={18} />
                   <span className="hidden sm:inline">{roomState.players.length < 3
@@ -193,14 +233,14 @@ export const HostView: React.FC = () => {
             <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-4">
               {roomState.players.length === 0 ? (
                 <div className="col-span-full p-12 text-center text-sm text-muted sm:p-16">
-                  <span className="mr-2 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-cyber-cyan"></span>
+                  <span className="mr-2 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-accent"></span>
                   Escaneen el código QR para unirse a la sala...
                 </div>
               ) : (
                 roomState.players.map((p) => (
                   <div
                     key={p.id}
-                    className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 bg-white/5 p-3 sm:p-4 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''}`}
+                    className={`relative flex flex-col items-center gap-2 rounded-lg border-2 bg-white/5 p-3 sm:p-4 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''}`}
                     style={{ borderColor: p.color }}
                   >
                     <div className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-[0_4px_12px_rgba(0,0,0,0.3)] sm:h-14 sm:w-14" style={{ backgroundColor: p.color }}>
@@ -232,11 +272,11 @@ export const HostView: React.FC = () => {
 
       {/* REVELACIÓN DE ROLES */}
       {roomState.status === 'ROLE_REVEAL' && (
-        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
-          <Sparkles size={48} className="animate-[spin_8s_linear_infinite] text-cyber-cyan" />
+        <div className="panel flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+          <ShieldAlert size={44} className="text-accent" />
           <h2 className="text-3xl font-black">ASIGNANDO ROLES SECRETOS...</h2>
           <p className="text-muted">Mira tu teléfono para conocer tu rol.</p>
-          <div className="mt-3 inline-block rounded-full border border-cyan-400/30 bg-cyan-400/15 px-5 py-2 text-cyber-cyan">
+          <div className="mt-3 inline-block rounded-full border border-accent/40 bg-accent/10 px-5 py-2 text-accent">
             Categoría: <strong>{roomState.category}</strong>
           </div>
         </div>
@@ -244,7 +284,7 @@ export const HostView: React.FC = () => {
 
       {/* FASE DE PISTAS */}
       {roomState.status === 'HINT_PHASE' && (
-        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+        <div className="panel flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
           <div className={`flex items-center gap-3 rounded-[30px] border-2 px-8 py-4 ${timerRingClass}`}>
             <Clock size={24} />
             <span className="font-display text-[28px] font-bold">{roomState.timer}s</span>
@@ -260,7 +300,7 @@ export const HostView: React.FC = () => {
             {roomState.players.map((p) => (
               <div
                 key={p.id}
-                className={`flex items-center gap-2.5 rounded-2xl border p-3 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''} ${p.hasSubmittedHint ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}
+                className={`flex items-center gap-2.5 rounded-lg border p-3 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''} ${p.hasSubmittedHint ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-line bg-white/5'}`}
               >
                 <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-white/15 bg-white/5">
                   <AvatarIcon avatarId={p.avatar} size={20} isBot={p.isBot} />
@@ -290,10 +330,10 @@ export const HostView: React.FC = () => {
         <div className="flex flex-1 flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <MessageSquare size={26} className="text-cyber-cyan" />
+              <MessageSquare size={26} className="text-accent" />
               <h2 className="text-2xl font-black">Pistas publicadas</h2>
             </div>
-            <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-bold text-cyber-cyan">
+            <span className="inline-flex items-center gap-1 rounded-full border border-line bg-raised px-3 py-1 text-sm font-bold text-muted">
               <Clock size={16} /> {roomState.timer}s
             </span>
           </div>
@@ -301,14 +341,14 @@ export const HostView: React.FC = () => {
 
           <div className="grid max-h-[calc(100dvh-240px)] min-h-0 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3 overflow-y-auto pr-1">
             {roomState.players.map((p) => (
-              <div key={p.id} className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-3.5">
+              <div key={p.id} className="flex flex-col rounded-lg border border-line bg-white/5 p-3.5">
                 <div className="flex items-center gap-2">
                   <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-white/5">
                     <AvatarIcon avatarId={p.avatar} size={18} isBot={p.isBot} />
                   </span>
                   <span className="truncate text-sm font-semibold">{p.name}</span>
                 </div>
-                <p className="mt-2.5 line-clamp-4 wrap-break-word rounded-lg border-l-[3px] border-l-cyber-purple bg-purple-500/15 p-2.5 text-[15px] font-semibold leading-snug text-white">
+                <p className="mt-2.5 line-clamp-4 wrap-break-word rounded-lg border-l-[3px] border-l-accent bg-accent/10 p-2.5 text-[15px] font-semibold leading-snug text-white">
                   "{p.hint || 'Sin pista'}"
                 </p>
               </div>
@@ -319,7 +359,7 @@ export const HostView: React.FC = () => {
 
       {/* VOTACIÓN */}
       {roomState.status === 'VOTING' && (
-        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+        <div className="panel flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
           <div className={`flex items-center gap-3 rounded-[30px] border-2 px-8 py-4 ${timerRingClass}`}>
             <Vote size={24} />
             <span className="font-display text-[28px] font-bold">{roomState.timer}s</span>
@@ -333,7 +373,7 @@ export const HostView: React.FC = () => {
             {roomState.players.map((p) => (
               <div
                 key={p.id}
-                className={`flex items-center gap-2 rounded-2xl border p-3 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''} ${p.hasVoted ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}
+                className={`flex items-center gap-2 rounded-lg border p-3 ${!p.connected ? 'opacity-45' : ''} ${p.eliminated ? 'opacity-40' : ''} ${p.hasVoted ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-line bg-white/5'}`}
               >
                 <span className="flex h-8 w-8 flex-none items-center justify-center">
                   <AvatarIcon avatarId={p.avatar} size={18} isBot={p.isBot} />
@@ -361,7 +401,7 @@ export const HostView: React.FC = () => {
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6">
           <div className="flex items-center gap-3">
             <h2 className="text-3xl font-black">Votos</h2>
-            <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-bold text-cyber-cyan">
+            <span className="inline-flex items-center gap-1 rounded-full border border-line bg-raised px-3 py-1 text-sm font-bold text-muted">
               <Clock size={16} /> {roomState.timer}s
             </span>
           </div>
@@ -375,8 +415,8 @@ export const HostView: React.FC = () => {
                 return (
                   <div
                     key={p.id}
-                    className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition ${
-                      revealEjected && ejected ? 'border-red-500/60 bg-red-500/15' : 'border-white/10 bg-white/5'
+                    className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition ${
+                      revealEjected && ejected ? 'border-red-500/60 bg-red-500/15' : 'border-line bg-white/5'
                     }`}
                   >
                     <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full" style={{ backgroundColor: p.color }}>
@@ -398,7 +438,7 @@ export const HostView: React.FC = () => {
 
           {revealEjected &&
             (roomState.ejectedPlayer ? (
-              <div className="flex items-center gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 px-6 py-3">
+              <div className="flex items-center gap-3 rounded-xl border border-red-500/40 bg-red-500/10 px-6 py-3">
                 <span className="text-xl font-bold">{roomState.ejectedPlayer.name}</span>
                 <span
                   className={`rounded-full border px-3 py-1 text-sm font-extrabold ${
@@ -411,7 +451,7 @@ export const HostView: React.FC = () => {
                 </span>
               </div>
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-center">
+              <div className="rounded-xl border border-line bg-white/5 px-6 py-3 text-center">
                 <p className="text-lg font-bold">Empate en los votos. Nadie fue expulsado.</p>
                 <p className="mt-1 text-sm text-muted">Sigue la siguiente ronda...</p>
               </div>
@@ -421,7 +461,7 @@ export const HostView: React.FC = () => {
 
       {/* FASE DE ADIVINACIÓN DEL IMPOSTOR */}
       {roomState.status === 'GUESS_PHASE' && (
-        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+        <div className="panel flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
           <div className={`flex items-center gap-3 rounded-[30px] border-2 px-8 py-4 ${timerRingClass}`}>
             <Clock size={24} />
             <span className="font-display text-[28px] font-bold">{roomState.timer}s</span>
@@ -438,9 +478,9 @@ export const HostView: React.FC = () => {
 
       {/* PANTALLA FINAL / GANADORES */}
       {roomState.status === 'GAME_OVER' && (
-        <div className="glass-card flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
+        <div className="panel flex flex-1 flex-col items-center justify-center gap-6 p-12 text-center">
           {roomState.winner === 'IMPOSTOR' ? (
-            <div className="flex flex-col items-center gap-3 rounded-3xl border border-red-500/40 bg-red-500/10 p-8">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-8">
               <ShieldAlert size={48} className="text-red-400" />
               <h1 className="text-4xl font-black">¡VICTORIA DEL IMPOSTOR!</h1>
               <p className="max-w-105 text-muted">
@@ -450,24 +490,24 @@ export const HostView: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-3 rounded-3xl border border-emerald-500/40 bg-emerald-500/10 p-8">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-8">
               <Trophy size={48} className="text-emerald-400" />
               <h1 className="text-4xl font-black">¡VICTORIA DE LOS TRIPULANTES!</h1>
               <p className="max-w-105 text-muted">¡Descubrieron al impostor y protegieron la palabra secreta!</p>
             </div>
           )}
 
-          <div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 text-white">
+          <div className="rounded-lg border border-accent/40 bg-accent/10 px-5 py-3 text-white">
             La palabra secreta era: <strong>"{roomState.secretWord}"</strong>
           </div>
 
-          <div className="w-full max-w-140 rounded-2xl border border-white/10 bg-black/30 p-5">
+          <div className="w-full max-w-140 rounded-xl border border-line bg-raised p-5">
             <h3 className="mb-3 text-lg font-bold">TABLA DE PUNTUACIÓN</h3>
             <div>
               {roomState.players
                 .sort((a, b) => b.score - a.score)
                 .map((p, idx) => (
-                  <div key={p.id} className="flex items-center gap-3 border-b border-white/5 p-3 last:border-0">
+                  <div key={p.id} className="flex items-center gap-3 border-b border-line/60 p-3 last:border-0">
                     <span className="w-8 text-muted">#{idx + 1}</span>
                     <span className="flex h-8 w-8 items-center justify-center">
                       {idx === 0 ? (
@@ -477,7 +517,7 @@ export const HostView: React.FC = () => {
                       )}
                     </span>
                     <span className="font-semibold">{p.name}</span>
-                    <span className="ml-auto font-bold text-cyber-cyan">{p.score} pts</span>
+                    <span className="ml-auto font-bold text-accent">{p.score} pts</span>
                   </div>
                 ))}
             </div>
@@ -485,8 +525,10 @@ export const HostView: React.FC = () => {
 
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-2xl bg-linear-to-r from-cyber-purple to-cyber-cyan px-8 py-4 text-[15px] font-extrabold tracking-wide text-[#0b0d18] shadow-[0_10px_30px_rgba(170,59,255,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_38px_rgba(170,59,255,0.45)]"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-8 py-4 text-[15px] font-bold tracking-wide text-surface transition-colors hover:bg-accent-strong"
             onClick={resetGame}
+            data-cuelume-press="pulse"
+            data-cuelume-release
           >
             <RotateCcw size={18} /> JUGAR OTRA PARTIDA
           </button>

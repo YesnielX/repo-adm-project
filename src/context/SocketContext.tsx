@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { play } from 'cuelume';
 
 export interface Player {
   id: string;
@@ -42,6 +43,8 @@ interface SocketContextType {
   socket: Socket | null;
   roomState: RoomState | null;
   localIp: string | null;
+  localIpCandidates: string[];
+  setLocalIp: (ip: string | null) => void;
   myPlayerId: string | null;
   myPlayerToken: string | null;
   myRoleInfo: MyRoleInfo | null;
@@ -68,6 +71,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [socket, setSocket] = useState<Socket | null>(null);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [localIp, setLocalIp] = useState<string | null>(null);
+  const [localIpCandidates, setLocalIpCandidates] = useState<string[]>([]);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [myPlayerToken, setMyPlayerToken] = useState<string | null>(null);
   const [myRoleInfo, setMyRoleInfo] = useState<MyRoleInfo | null>(null);
@@ -113,9 +117,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     });
 
-    newSocket.on('room_created', ({ localIp, roomState }) => {
+    newSocket.on('room_created', ({ localIp, ipCandidates, roomState }) => {
       setLocalIp(localIp);
+      setLocalIpCandidates(Array.isArray(ipCandidates) ? ipCandidates : []);
       setRoomState(roomState);
+      play('ready');
     });
 
     newSocket.on('joined_successfully', ({ playerId, playerToken, roomState }) => {
@@ -124,6 +130,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setMyPlayerToken(playerToken ?? null);
       setRoomState(roomState);
       setErrorMessage(null);
+      play('success');
 
       // Guardar sesión (token de reconexión) para poder re-unirse tras un refresh
       if (roomState?.roomCode && playerToken) {
@@ -159,6 +166,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     newSocket.on('error_message', (msg: string) => {
+      play('error');
+
       const isFatal = typeof msg === 'string' && (
         msg.startsWith('La sala no existe') ||
         msg.startsWith('El Host ha cerrado la sala') ||
@@ -175,10 +184,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           localStorage.removeItem(SESSION_STORAGE_KEY);
         } catch (err) {
           console.error(err);
-        }
-        // Limpiar el parámetro ?room= de la URL si la sala expiró o no existe
-        if (window.location.search.includes('room=')) {
-          window.history.replaceState({}, document.title, window.location.pathname);
         }
       } else {
         // Errores no fatales (p.ej. 'Voto inválido'): solo mostrar el mensaje,
@@ -229,9 +234,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const resetToLanding = () => {
     setRoomState(null);
     setErrorMessage(null);
-    if (window.location.search) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
   };
 
   return (
@@ -240,6 +242,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         socket,
         roomState,
         localIp,
+        localIpCandidates,
+        setLocalIp,
         myPlayerId,
         myPlayerToken,
         myRoleInfo,

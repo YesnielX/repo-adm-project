@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "server": "node server/index.ts",
+    "server": "node --watch server/index.ts",
     "start": "concurrently \"npm run server\" \"npm run dev\" --names \"SERVER,FRONTEND\" --prefix-colors \"magenta,cyan\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -13,8 +13,10 @@
     "typecheck:server": "tsc --noEmit -p tsconfig.server.json"
   },
   "dependencies": {
+    "@tanstack/react-router": "^1.170.29",
     "canvas-confetti": "^1.9.4",
     "cors": "^2.8.6",
+    "cuelume": "^0.2.2",
     "express": "^5.2.1",
     "gsap": "^3.15.0",
     "html5-qrcode": "^2.3.8",
@@ -30,6 +32,7 @@
     "@eslint/js": "^10.0.1",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/router-plugin": "^1.168.32",
     "@types/babel__core": "^7.20.5",
     "@types/canvas-confetti": "^1.9.0",
     "@types/cors": "^2.8.19",

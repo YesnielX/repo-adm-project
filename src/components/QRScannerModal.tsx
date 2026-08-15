@@ -63,16 +63,18 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ onScanSuccess, o
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
-      <div className="glass-card flex w-full max-w-[400px] flex-col gap-4 p-5">
+      <div className="panel flex w-full max-w-[400px] flex-col gap-4 p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Camera size={22} className="text-cyber-cyan" />
+            <Camera size={22} className="text-accent" />
             <h3 className="text-base font-bold text-white">Escanear Código QR</h3>
           </div>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
             onClick={handleClose}
+            data-cuelume-press
+            data-cuelume-release
           >
             <X size={20} />
           </button>
@@ -84,15 +86,17 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ onScanSuccess, o
             <p className="text-sm leading-relaxed text-muted">{cameraError}</p>
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 bg-cyan-400/15 px-5 py-3 text-sm font-bold text-cyber-cyan transition hover:-translate-y-0.5 hover:bg-cyan-400/30"
+              className="inline-flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-5 py-3 text-sm font-bold text-accent transition-colors hover:bg-accent/20"
               onClick={handleClose}
+              data-cuelume-press
+              data-cuelume-release
             >
               Ingresar código manualmente
             </button>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <div id="qr-camera-reader" className="w-full overflow-hidden rounded-2xl border-2 border-cyber-cyan"></div>
+            <div id="qr-camera-reader" className="w-full overflow-hidden rounded-lg border-2 border-accent"></div>
             <p className="text-center text-xs text-muted">Apunta la cámara de tu móvil al código QR del proyector</p>
           </div>
         )}
