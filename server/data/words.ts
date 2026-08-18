@@ -6,7 +6,7 @@
  * intencionales.
  */
 
-import type { SecretWord, WordCategory } from './types.ts';
+import type { SecretWord, WordCategory } from '../types.ts';
 
 export const WORD_BANK: Record<WordCategory, string[]> = {
   'Metodologías Ágiles': [
