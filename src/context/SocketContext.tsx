@@ -50,6 +50,8 @@ export interface RoomState {
   secretWord: string | null;
   players: Player[];
   timer: number;
+  /** Duración en segundos de cada fase; llega desde el servidor (config.ts). */
+  phaseSeconds: Record<string, number>;
   ejectedPlayer: {
     id: string;
     name: string;
@@ -200,6 +202,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     newSocket.on("timer_tick", (seconds: number) => {
+      // Cuenta regresiva final: tick en los últimos 3 segundos para dar tensión.
+      if (typeof seconds === "number" && seconds > 0 && seconds <= 3) {
+        play("tick");
+      }
       setRoomState((prev) => (prev ? { ...prev, timer: seconds } : null));
     });
 
@@ -289,8 +295,20 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const clearError = () => setErrorMessage(null);
 
   const resetToLanding = () => {
+    // Al salir a home, el servidor debe ver al jugador offline: se desconecta
+    // el socket (el host lo marca como desconectado y arranca la gracia de 45s)
+    // y se reconecta al instante para que un futuro join_room funcione.
+    if (socket?.connected && (roomState || myPlayerId)) {
+      socket.disconnect();
+      socket.connect();
+    }
     setRoomState(null);
     setErrorMessage(null);
+    setMyPlayerId(null);
+    setMyPlayerToken(null);
+    setMyRoleInfo(null);
+    setImpostorOptions([]);
+    joinedRef.current = false;
   };
 
   return (

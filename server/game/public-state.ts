@@ -3,6 +3,7 @@
  * broadcasts. Los secretos del juego nunca salen por aquí.
  */
 import type { Room, PublicRoomState } from "../types.ts";
+import { PHASE_SECONDS } from "../config.ts";
 
 /**
  * Estado público de la sala. Los secretos del juego nunca salen por aquí:
@@ -41,6 +42,7 @@ export function getSanitizedRoomState(room: Room): PublicRoomState {
       score: p.score,
     })),
     timer: room.timer,
+    phaseSeconds: { ...PHASE_SECONDS },
     ejectedPlayer: room.ejectedPlayer,
     winner: room.winner,
     impostorGuessedCorrectly: room.impostorGuessedCorrectly,

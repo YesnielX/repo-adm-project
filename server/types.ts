@@ -125,6 +125,8 @@ export interface PublicRoomState {
   secretWord: string | null;
   players: PublicPlayer[];
   timer: number;
+  /** Duración en segundos de cada fase (el cliente usa esto para el anillo). */
+  phaseSeconds: Record<string, number>;
   ejectedPlayer: EjectedPlayer | null;
   winner: Winner | null;
   impostorGuessedCorrectly: boolean | null;

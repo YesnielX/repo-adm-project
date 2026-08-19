@@ -20,13 +20,14 @@ export const BOT_COLORS = [
 ];
 
 // Segundos de cada fase; los usa el anillo de progreso del cliente.
+// Las claves coinciden con los nombres de status del juego (GameStatus).
 export const PHASE_SECONDS = {
   ROLE_REVEAL: 6,
-  HINT: 30,
+  HINT_PHASE: 30,
   SHOWCASE: 35,
   VOTING: 20,
   EJECTION: 8,
-  GUESS: 15,
+  GUESS_PHASE: 15,
 } as const;
 
 // Gracia de reconexión: 45s para volver con el token antes de retirarlo.

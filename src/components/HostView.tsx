@@ -69,8 +69,11 @@ export const HostView: React.FC = () => {
   // IP efectiva del QR: la elegida por el host, o la primera candidata como respaldo.
   const effectiveIp = localIp || localIpCandidates[0] || null;
 
+  // Puerto dinámico: si Vite corre en 5173/5174/preview (4173), el QR apunta
+  // al puerto real en vez de un 5173 hardcodeado que se rompe en producción.
+  const port = window.location.port ? `:${window.location.port}` : '';
   const joinUrl = effectiveIp && effectiveIp !== 'localhost'
-    ? `http://${effectiveIp}:5173/codeimpostor/unirse?room=${roomState.roomCode}`
+    ? `${window.location.protocol}//${effectiveIp}${port}/codeimpostor/unirse?room=${roomState.roomCode}`
     : `${window.location.protocol}//${window.location.host}/codeimpostor/unirse?room=${roomState.roomCode}`;
 
   const timerRingClass =
@@ -504,7 +507,7 @@ export const HostView: React.FC = () => {
           <div className="w-full max-w-140 rounded-xl border border-line bg-raised p-5">
             <h3 className="mb-3 text-lg font-bold">TABLA DE PUNTUACIÓN</h3>
             <div>
-              {roomState.players
+              {[...roomState.players]
                 .sort((a, b) => b.score - a.score)
                 .map((p, idx) => (
                   <div key={p.id} className="flex items-center gap-3 border-b border-line/60 p-3 last:border-0">

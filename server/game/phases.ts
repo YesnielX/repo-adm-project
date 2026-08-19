@@ -80,7 +80,7 @@ function startNextRound(room: Room): void {
 
 function startHintPhase(room: Room): void {
   room.status = "HINT_PHASE";
-  room.timer = PHASE_SECONDS.HINT;
+  room.timer = PHASE_SECONDS.HINT_PHASE;
   io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 
   // Los bots escriben su pista con un retraso aleatorio (los eliminados no).
@@ -242,7 +242,7 @@ function startGuessPhase(room: Room): void {
   // Bonus de supervivencia de la ronda en la que fue descubierto.
   awardRoundBonus(room);
   room.status = "GUESS_PHASE";
-  room.timer = PHASE_SECONDS.GUESS;
+  room.timer = PHASE_SECONDS.GUESS_PHASE;
 
   const wrongOptions = WORD_BANK[secretWord.category]
     .filter((w) => w !== secretWord.word)

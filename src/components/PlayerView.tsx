@@ -24,6 +24,7 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { useGameSocket } from '../context/SocketContext';
+import type { RoomState } from '../context/SocketContext';
 import { AVATAR_OPTIONS, AvatarIcon } from './AvatarIcon';
 import { QRScannerModal } from './QRScannerModal';
 import { play } from 'cuelume';
@@ -33,12 +34,19 @@ const COLORS = ['#a3e635', '#38bdf8', '#10b981', '#f59e0b', '#ef4444', '#ec4899'
 const PROFILE_STORAGE_KEY = 'codeimpostor_player_profile';
 const SESSION_STORAGE_KEY = 'codeimpostor_player_session';
 
-// Segundos de cada fase, para el anillo de progreso
+// Segundos de cada fase, para el anillo de progreso. El servidor los envía en
+// roomState.phaseSeconds (fuente única de verdad); estos son solo el respaldo
+// si un servidor antiguo no los incluye.
 const PHASE_SECONDS: Record<string, number> = {
+  ROLE_REVEAL: 6,
   HINT_PHASE: 30,
   SHOWCASE: 35,
-  VOTING: 20
+  VOTING: 20,
+  EJECTION: 8,
+  GUESS_PHASE: 15
 };
+const phaseSecondsOf = (roomState: RoomState | null, phase: string): number =>
+  roomState?.phaseSeconds?.[phase] ?? PHASE_SECONDS[phase] ?? 30;
 
 const getSavedSession = (): { roomCode: string; token: string } | null => {
   try {
@@ -92,6 +100,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const autoRejoinAttemptedRef = useRef(false);
   const prevStatusRef = useRef<string | null>(null);
+  const prevRoomCodeLenRef = useRef(0);
 
   useEffect(() => {
     const status = roomState?.status ?? null;
@@ -124,6 +133,15 @@ export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
       play('success');
     }
   }, [roomState?.status]);
+
+  // Sonido de llegada a la pantalla de unirse (solo la primera vez al montar).
+  const arrivalPlayedRef = useRef(false);
+  useEffect(() => {
+    if (!arrivalPlayedRef.current) {
+      arrivalPlayedRef.current = true;
+      play('arrival');
+    }
+  }, []);
 
   // Auto-rejoin: la URL apunta a una sala y hay sesión guardada para esa sala
   const hasMatchingSession = !!roomParam && !!savedProfile?.name && getSavedSession()?.roomCode === roomParam;
@@ -322,7 +340,17 @@ export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
                   placeholder="1234"
                   className="input-base pl-10 pr-12 text-center text-2xl font-extrabold tracking-[8px]"
                   value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => {
+                    const next = e.target.value.replace(/\D/g, '');
+                    const prevLen = prevRoomCodeLenRef.current;
+                    // Tick por dígito nuevo; chime al completar los 4.
+                    if (next.length > prevLen) {
+                      play('tick');
+                      if (next.length === 4) play('chime');
+                    }
+                    prevRoomCodeLenRef.current = next.length;
+                    setRoomCode(next);
+                  }}
                   required
                 />
                 <button
@@ -357,7 +385,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
               </div>
             </div>
 
-            <div>
+            <div className="flex min-h-0 flex-1 flex-col">
               <label className="mb-2 block text-xs font-bold uppercase tracking-[1.5px] text-muted">Avatar</label>
               <div className="grid min-h-0 flex-1 content-start grid-cols-8 gap-1.5 overflow-y-auto p-0.5 sm:grid-cols-10 md:gap-2">
                 {AVATAR_OPTIONS.map((av) => (
@@ -573,7 +601,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
                   <div className="flex min-h-0 flex-1 flex-col px-4 pb-5 pt-3 sm:px-5 sm:pb-6 sm:pt-4 md:mx-auto md:w-full md:max-w-[520px]">
                     <div className="mb-2.5 flex items-center justify-between sm:mb-3">
                       <h2 className="text-base font-extrabold sm:text-lg">Escribe tu pista</h2>
-                      {timerRing((roomState.timer / PHASE_SECONDS.HINT_PHASE) * 100)}
+                      {timerRing((roomState.timer / phaseSecondsOf(roomState, 'HINT_PHASE')) * 100)}
                     </div>
                     <p className="mb-2.5 text-xs leading-relaxed text-muted sm:mb-3 sm:text-sm">
                       1 o 2 palabras clave que revelen la palabra sin delatarla.
@@ -651,7 +679,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
                           Toca a quien creas que no conoce la palabra.
                         </p>
                       </div>
-                      {timerRing((roomState.timer / PHASE_SECONDS.VOTING) * 100)}
+                      {timerRing((roomState.timer / phaseSecondsOf(roomState, 'VOTING')) * 100)}
                     </div>
                     {me?.hasVoted ? (
                       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">

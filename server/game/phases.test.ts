@@ -91,10 +91,10 @@ describe("fase de pistas -> showcase", () => {
     startHintPhase(room);
 
     expect(room.status).toBe("HINT_PHASE");
-    expect(room.timer).toBe(PHASE_SECONDS.HINT);
+    expect(room.timer).toBe(PHASE_SECONDS.HINT_PHASE);
 
     // Ningún bot y humanos con hint null: el timer debe agotarse por completo.
-    vi.advanceTimersByTime(PHASE_SECONDS.HINT * 1000);
+    vi.advanceTimersByTime(PHASE_SECONDS.HINT_PHASE * 1000);
     expect(room.status).toBe("SHOWCASE");
   });
 
@@ -181,7 +181,7 @@ describe("adivinanza del impostor", () => {
     expect(room.guessOptions).toContain("Scrum");
 
     // Sin respuesta humana, el timer agota y ganan los tripulantes.
-    vi.advanceTimersByTime(PHASE_SECONDS.GUESS * 1000);
+    vi.advanceTimersByTime(PHASE_SECONDS.GUESS_PHASE * 1000);
     expect(room.status).toBe("GAME_OVER");
     expect(room.winner).toBe("CREWMATES");
   });

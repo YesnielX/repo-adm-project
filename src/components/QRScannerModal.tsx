@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, X, AlertCircle } from 'lucide-react';
+import { play } from 'cuelume';
 
 interface QRScannerModalProps {
   onScanSuccess: (roomCode: string) => void;
@@ -30,6 +31,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({ onScanSuccess, o
 
           if (code) {
             if (navigator.vibrate) navigator.vibrate(100);
+            play('scan');
             html5Qrcode.stop().then(() => {
               onScanSuccess(code);
             }).catch(() => {
