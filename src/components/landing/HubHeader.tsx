@@ -13,10 +13,7 @@ export const HubHeader: React.FC = () => {
           <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/40 bg-accent/10 text-accent">
             <Gamepad2 size={18} />
           </span>
-          <span className="font-display text-lg font-bold tracking-wide text-white">CodeImpostor Arcade</span>
-          <span className="ml-1 hidden rounded-full border border-line bg-raised px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[1.5px] text-muted sm:inline-block">
-            {isMatrix ? 'MATRIX' : 'ARCADE'}
-          </span>
+          <span className="font-display text-lg font-bold tracking-wide text-white">ClassArcade</span>
         </div>
         <nav className="flex items-center gap-6 text-sm text-muted">
           <a href="#juegos" className="transition-colors hover:text-white" data-cuelume-hover="tick">

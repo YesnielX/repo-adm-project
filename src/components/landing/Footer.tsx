@@ -9,7 +9,7 @@ export const Footer: React.FC = () => (
           <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/40 bg-accent/10 text-accent">
             <Gamepad2 size={18} />
           </span>
-          <span className="font-display text-lg font-bold text-white">CodeImpostor Arcade</span>
+          <span className="font-display text-lg font-bold text-white">ClassArcade</span>
         </div>
         <p className="mt-4 text-sm leading-relaxed text-muted">
           Arcade multijugador para el aula. Juegos por equipos que se proyectan
@@ -57,7 +57,7 @@ export const Footer: React.FC = () => (
 
     <div className="border-t border-line">
       <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-6 text-xs text-muted sm:flex-row sm:items-center sm:justify-between lg:px-8">
-        <p>© 2026 CodeImpostor Arcade. Hecho para jugar en clase.</p>
+        <p>© 2026 ClassArcade. Hecho para jugar en clase.</p>
         <p>Cada quien entra desde su celular en la red del aula.</p>
       </div>
     </div>

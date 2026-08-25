@@ -1,4 +1,4 @@
-# CodeImpostor Arcade
+# ClassArcade
 
 Plataforma de juegos multijugador en tiempo real para la clase de **Administración de Proyectos de Software**. Su juego insignia es **CodeImpostor**, un juego de **deducción social** (estilo _Among Us_ / _El Topo_) que se ejecuta en la red Wi-Fi local del aula: la pantalla del proyector (Host) muestra el tablero y un **código QR**; los estudiantes se unen desde sus teléfonos escaneándolo o ingresando el código de sala, sin instalar nada.
 

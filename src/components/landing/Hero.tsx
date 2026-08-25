@@ -49,11 +49,9 @@ export const Hero: React.FC = () => {
         {/* Marquee del gabinete */}
         <div data-hero-marquee className="flex items-end justify-between gap-6 border-b-2 border-accent pb-4">
           <h1 className="font-display text-5xl font-bold uppercase leading-[0.9] tracking-tight text-white sm:text-7xl lg:text-8xl">
-            Code
+            Class
             <br />
-            <span className="text-accent">Impostor</span>
-            <br />
-            <span className="text-3xl tracking-[0.2em] sm:text-4xl lg:text-5xl">Arcade</span>
+            <span className="text-accent">Arcade</span>
           </h1>
           <div className="hidden flex-none flex-col items-end gap-1 pb-1 text-right sm:flex">
             <span className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-muted">
