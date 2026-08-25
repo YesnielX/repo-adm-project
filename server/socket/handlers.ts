@@ -1,7 +1,7 @@
 /**
  * Handlers de Socket.IO: toda la lógica de eventos cliente -> servidor
  * (create_room, add_bots, join_room, start_game, submit_hint, submit_vote,
- * submit_impostor_guess, reset_game y disconnect).
+ * submit_impostor_guess, force_next_phase, reset_game y disconnect).
  */
 import { randomUUID } from "crypto";
 import { io } from "../core/io.ts";
@@ -21,6 +21,7 @@ import {
   beginRoleReveal,
   startShowcasePhase,
   processVotingResults,
+  forceNextPhase,
 } from "../game/phases.ts";
 import { MAX_ROUNDS, DISCONNECT_GRACE_MS } from "../config.ts";
 import {
@@ -156,6 +157,30 @@ export function registerSocketHandlers(): void {
 
       if (room.status !== "LOBBY") {
         socket.emit("error_message", "La partida ya está en curso.");
+        return;
+      }
+
+      // Reutilizar jugador existente si ya está en la sala con el mismo nombre
+      const existingByName = room.players.find((p) => p.name === name && !p.isBot);
+      if (existingByName) {
+        if (existingByName.disconnectTimer) {
+          clearTimeout(existingByName.disconnectTimer);
+          existingByName.disconnectTimer = null;
+        }
+        existingByName.id = socket.id;
+        existingByName.connected = true;
+        socket.join(roomCode);
+        roomBySocket.set(socket.id, roomCode);
+
+        // Reasignar referencias que apuntaban al id viejo.
+        if (room.impostorId === existingByName.id) room.impostorId = socket.id;
+
+        io.to(roomCode).emit("room_updated", getSanitizedRoomState(room));
+        socket.emit("joined_successfully", {
+          playerId: socket.id,
+          playerToken: existingByName.token,
+          roomState: getSanitizedRoomState(room),
+        });
         return;
       }
 
@@ -311,6 +336,16 @@ export function registerSocketHandlers(): void {
         io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
       },
     );
+
+    socket.on("force_next_phase", () => {
+      const room = roomOfSocket(socket);
+      if (!room || room.hostId !== socket.id) return;
+
+      // Solo tiene efecto durante una partida en curso; el host salta la
+      // fase sin esperar el timer (LOBBY y GAME_OVER se ignoran en phases).
+      clearRoomTimer(room);
+      forceNextPhase(room);
+    });
 
     socket.on("reset_game", () => {
       const room = roomOfSocket(socket);

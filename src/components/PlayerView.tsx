@@ -203,6 +203,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
   const handleClearExpiredRoom = () => {
     setRoomCode('');
     clearError();
+    setJoining(false);
     resetToLanding();
     navigate({ to: '/codeimpostor/unirse', search: {} });
   };
@@ -213,6 +214,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({ roomParam = '' }) => {
 
   const confirmExit = () => {
     setShowExitModal(false);
+    setJoining(false);
     resetToLanding();
     navigate({ to: '/codeimpostor/unirse', search: {} });
   };

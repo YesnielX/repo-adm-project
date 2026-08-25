@@ -17,6 +17,7 @@ import {
   X,
   MessageSquare,
   Home,
+  FastForward,
   AlertTriangle
 } from 'lucide-react';
 import { useGameSocket } from '../context/SocketContext';
@@ -25,7 +26,7 @@ import { play } from 'cuelume';
 import { playPhaseSound } from '../audio/gameSounds';
 
 export const HostView: React.FC = () => {
-  const { roomState, localIp, localIpCandidates, setLocalIp, startGame, addBots, resetGame } = useGameSocket();
+  const { roomState, localIp, localIpCandidates, setLocalIp, startGame, addBots, forceNextPhase, resetGame } = useGameSocket();
   const stageRef = useRef<HTMLDivElement>(null);
   const [showExitModal, setShowExitModal] = useState(false);
 
@@ -133,6 +134,19 @@ export const HostView: React.FC = () => {
           <h1 className="font-display text-[30px] font-bold tracking-wide">CODE IMPOSTOR</h1>
         </div>
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+          {roomState.status !== 'LOBBY' && roomState.status !== 'GAME_OVER' && (
+            <button
+              type="button"
+              onClick={forceNextPhase}
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 text-sm font-bold text-amber-300 transition-colors hover:bg-amber-400/20 sm:px-5 sm:py-3"
+              title="Saltar la fase actual y avanzar sin esperar el timer"
+              data-cuelume-press
+              data-cuelume-release
+            >
+              <FastForward size={18} />
+              <span className="hidden lg:inline">Saltar fase</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleBackToHome}

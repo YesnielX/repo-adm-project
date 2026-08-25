@@ -87,6 +87,7 @@ interface SocketContextType {
   submitHint: (hint: string) => void;
   submitVote: (targetId: string) => void;
   submitImpostorGuess: (word: string) => void;
+  forceNextPhase: () => void;
   resetGame: () => void;
   clearError: () => void;
   resetToLanding: () => void;
@@ -288,6 +289,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       } satisfies SubmitImpostorGuessPayload);
   };
 
+  const forceNextPhase = () => {
+    if (socket) socket.emit("force_next_phase");
+  };
+
   const resetGame = () => {
     if (socket) socket.emit("reset_game");
   };
@@ -331,6 +336,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
         submitHint,
         submitVote,
         submitImpostorGuess,
+        forceNextPhase,
         resetGame,
         clearError,
         resetToLanding,

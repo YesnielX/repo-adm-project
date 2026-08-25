@@ -140,6 +140,41 @@ function startVotingPhase(room: Room): void {
   }, 1000);
 }
 
+/** Resuelve quién sale tras la escena de votos (o empate -> siguiente ronda). */
+function resolveEjection(room: Room): void {
+  if (room.ejectedPlayer && room.ejectedPlayer.id === room.impostorId) {
+    startGuessPhase(room);
+    return;
+  }
+
+  if (room.ejectedPlayer) {
+    const expelled = room.players.find((p) => p.id === room.ejectedPlayer!.id);
+    if (expelled) {
+      expelled.eliminated = true;
+      expelled.hint = null;
+      expelled.vote = null;
+    }
+
+    const aliveCrewmates = room.players.filter(
+      (p) => p.role === "CREWMATE" && !p.eliminated,
+    ).length;
+    if (aliveCrewmates <= 1) {
+      room.winner = "IMPOSTOR";
+      room.impostorGuessedCorrectly = false;
+      room.status = "GAME_OVER";
+      const impostor = room.players.find((p) => p.id === room.impostorId);
+      if (impostor) impostor.score += 100;
+      io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
+    } else {
+      startNextRound(room);
+    }
+    return;
+  }
+
+  // Empate
+  startNextRound(room);
+}
+
 /**
  * Tras la animación de expulsión:
  * - Impostor expulsado -> adivinanza (puede robar la victoria).
@@ -197,40 +232,7 @@ function processVotingResults(room: Room): void {
     if (room.timer > 0) return;
     clearRoomTimer(room);
     if (!rooms.has(room.roomCode)) return;
-
-    if (room.ejectedPlayer && room.ejectedPlayer.id === room.impostorId) {
-      startGuessPhase(room);
-      return;
-    }
-
-    if (room.ejectedPlayer) {
-      const expelled = room.players.find(
-        (p) => p.id === room.ejectedPlayer!.id,
-      );
-      if (expelled) {
-        expelled.eliminated = true;
-        expelled.hint = null;
-        expelled.vote = null;
-      }
-
-      const aliveCrewmates = room.players.filter(
-        (p) => p.role === "CREWMATE" && !p.eliminated,
-      ).length;
-      if (aliveCrewmates <= 1) {
-        room.winner = "IMPOSTOR";
-        room.impostorGuessedCorrectly = false;
-        room.status = "GAME_OVER";
-        const impostor = room.players.find((p) => p.id === room.impostorId);
-        if (impostor) impostor.score += 100;
-        io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
-      } else {
-        startNextRound(room);
-      }
-      return;
-    }
-
-    // Empate
-    startNextRound(room);
+    resolveEjection(room);
   }, 1000);
 }
 
@@ -295,6 +297,36 @@ function finishGuess(room: Room, guessedCorrectly: boolean): void {
   io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
 }
 
+/**
+ * El host salta la fase actual: avanza directo a la siguiente sin esperar
+ * el timer. En GUESS_PHASE se resuelve como si el tiempo se agotara.
+ */
+function forceNextPhase(room: Room): void {
+  switch (room.status) {
+    case "ROLE_REVEAL":
+      startHintPhase(room);
+      break;
+    case "HINT_PHASE":
+      startShowcasePhase(room);
+      break;
+    case "SHOWCASE":
+      startVotingPhase(room);
+      break;
+    case "VOTING":
+      processVotingResults(room);
+      break;
+    case "EJECTION":
+      resolveEjection(room);
+      break;
+    case "GUESS_PHASE":
+      finishGuess(room, false);
+      break;
+    default:
+      // LOBBY y GAME_OVER no tienen fase siguiente que saltar.
+      break;
+  }
+}
+
 export {
   emitRoles,
   beginRoleReveal,
@@ -306,4 +338,5 @@ export {
   processVotingResults,
   startGuessPhase,
   finishGuess,
+  forceNextPhase,
 };
