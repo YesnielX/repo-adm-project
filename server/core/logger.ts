@@ -1,12 +1,21 @@
 /**
- * Logger compartido del servidor (Pino). En desarrollo (NODE_ENV !=
- * "production") se embellece con pino-pretty; en producción emite JSON plano.
- * Si pino-pretty no carga, se cae a la instancia JSON y el servidor sigue.
+ * Logger centralizado del servidor basado en Pino.
+ *
+ * Características:
+ * - En modo desarrollo (NODE_ENV !== "production"): Emplea `pino-pretty` para formatear los logs con colores y legibilidad humana en consola.
+ * - En modo producción: Emite JSON estructurado de alto rendimiento.
+ * - Tolerante a fallos: Si `pino-pretty` no está disponible o falla su carga, cae automáticamente al logger estándar en JSON sin interrumpir el servidor.
  */
 import { pino, type Logger } from "pino";
 
+/** Verifica si la aplicación se está ejecutando en entorno de producción */
 const isProduction = process.env.NODE_ENV === "production";
 
+/**
+ * Inicializa y configura la instancia de Pino.
+ *
+ * @returns Instancia configurada de Logger.
+ */
 function createLogger(): Logger {
   try {
     return pino({
@@ -18,4 +27,6 @@ function createLogger(): Logger {
   }
 }
 
+/** Instancia compartida del logger en toda la aplicación backend */
 export const logger = createLogger();
+

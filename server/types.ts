@@ -1,12 +1,15 @@
 /**
  * Tipos del dominio del servidor de CodeImpostor.
  *
- * El servidor guarda las salas en memoria (Map<roomCode, Room>). Todo lo que
- * el cliente recibe pasa por getSanitizedRoomState: los campos privados del
+ * El servidor guarda las salas en memoria (`Map<roomCode, Room>`). Todo lo que
+ * el cliente recibe pasa por `getSanitizedRoomState`: los campos privados del
  * juego (palabra secreta, rol, token) nunca viajan en broadcasts; el rol y la
- * palabra llegan por eventos privados dirigidos por socket.id.
+ * palabra llegan por eventos privados dirigidos por `socket.id`.
  */
 
+/**
+ * Estados del flujo de vida de una partida en una sala.
+ */
 export type GameStatus =
   | 'LOBBY'
   | 'ROLE_REVEAL'
@@ -17,9 +20,13 @@ export type GameStatus =
   | 'GUESS_PHASE'
   | 'GAME_OVER';
 
+/** Rol del jugador en la partida: Tripulante o Impostor */
 export type Role = 'CREWMATE' | 'IMPOSTOR';
+
+/** Ganador final de la partida */
 export type Winner = 'CREWMATES' | 'IMPOSTOR';
 
+/** Categorías temáticas de conceptos técnicos y de gestión de proyectos */
 export type WordCategory =
   | 'Metodologías Ágiles'
   | 'Desarrollo & Git'
@@ -40,64 +47,97 @@ export type WordCategory =
   | 'Comunicación & Equipos'
   | 'Metodologías de Desarrollo';
 
+/** Objeto que encapsula una palabra secreta con su respectiva categoría */
 export interface SecretWord {
+  /** Categoría temática a la que pertenece la palabra */
   category: WordCategory;
+  /** Concepto o término técnico en español */
   word: string;
 }
 
-/** Jugador registrado en una sala (incluye bots). */
+/** Representación completa de un jugador registrado en una sala (incluye bots) en el servidor */
 export interface Player {
+  /** ID del socket actual asignado al jugador (o identificador único si es bot) */
   id: string;
-  /** Identidad persistente para reconexión; nunca se expone por broadcast. */
+  /** Identidad persistente única (UUID) para reconexión de sesión; nunca se expone por broadcast */
   token: string;
+  /** Nombre visible del jugador */
   name: string;
+  /** Identificador de avatar seleccionado */
   avatar: string;
+  /** Color hexadecimal distintivo del jugador */
   color: string;
+  /** Indica si este socket es la pantalla del Host/Proyector */
   isHost: boolean;
+  /** Indica si el jugador es un bot simulado */
   isBot: boolean;
+  /** Estado de la conexión de red (true si está conectado al socket) */
   connected: boolean;
-  /** Expulsado en una ronda anterior: queda como espectador. */
+  /** Indica si fue expulsado en una ronda anterior (pasa a modo espectador) */
   eliminated: boolean;
+  /** Rol asignado durante la partida actual */
   role: Role | null;
+  /** Pista de texto enviada por el jugador en la ronda en curso */
   hint: string | null;
-  /** Id del jugador votado o 'SKIP'. */
+  /** ID del jugador por quien votó, o 'SKIP' */
   vote: string | null;
+  /** Puntuación acumulada a lo largo de las rondas */
   score: number;
-  /** Timer de gracia de desconexión (45s) pendiente, si lo hay. */
+  /** Temporizador de gracia de desconexión (45s) pendiente, si lo hay */
   disconnectTimer: NodeJS.Timeout | null;
 }
 
-/** Resumen del expulsado para la pantalla de expulsión. */
+/** Resumen público del jugador expulsado para la pantalla de expulsión (EJECTION) */
 export interface EjectedPlayer {
+  /** ID del jugador expulsado */
   id: string;
+  /** Nombre visible */
   name: string;
+  /** Avatar del jugador */
   avatar: string;
+  /** Rol revelado al ser expulsado */
   role: Role;
 }
 
+/** Estructura de estado interna completa de una sala en memoria */
 export interface Room {
+  /** Código alfanumérico único de 4 dígitos de la sala */
   roomCode: string;
+  /** Socket ID del host (pantalla proyector) */
   hostId: string;
+  /** Estado o fase actual de la partida */
   status: GameStatus;
+  /** Lista de jugadores (humanos y bots) registrados en la sala */
   players: Player[];
+  /** Palabra secreta actual de la ronda */
   secretWord: SecretWord | null;
-  /** El impostor es el mismo durante toda la partida. */
+  /** ID del jugador asignado como impostor (permanece constante durante toda la partida) */
   impostorId: string | null;
-  /** Opciones de la última oportunidad, para re-emitirlas en un rejoin. */
+  /** Opciones de palabras presentadas en la última oportunidad, conservadas para reconexión */
   guessOptions: string[] | null;
+  /** Segundos restantes en el temporizador de la fase actual */
   timer: number;
+  /** Intervalo de Node.js que actualiza el temporizador segundo a segundo */
   timerInterval: NodeJS.Timeout | null;
+  /** Datos del jugador expulsado en la ronda actual */
   ejectedPlayer: EjectedPlayer | null;
+  /** Ganador de la partida cuando status es GAME_OVER */
   winner: Winner | null;
+  /** Indica si el impostor acertó en su intento de adivinanza final */
   impostorGuessedCorrectly: boolean | null;
-  /** Conteo de votos de la última votación (solo durante EJECTION). */
+  /** Conteo de votos de la última votación realizada (solo relevante durante EJECTION) */
   voteCounts: Record<string, number> | null;
+  /** Número de ronda actual (1 a MAX_ROUNDS) */
   round: number;
+  /** Número total de rondas configuradas para la partida */
   maxRounds: number;
 }
 
-/* Estado público (sanitizado) que llega por room_updated */
+/* =========================================================================
+ * Estado público (sanitizado) enviado a clientes mediante 'room_updated'
+ * ========================================================================= */
 
+/** Representación pública de un jugador sin datos sensibles */
 export interface PublicPlayer {
   id: string;
   name: string;
@@ -108,12 +148,13 @@ export interface PublicPlayer {
   connected: boolean;
   eliminated: boolean;
   hasSubmittedHint: boolean;
-  /** Solo se expone desde SHOWCASE en adelante. */
+  /** Solo se expone desde SHOWCASE en adelante; null durante HINT_PHASE */
   hint: string | null;
   hasVoted: boolean;
   score: number;
 }
 
+/** Estado de sala enviado a todos los clientes conectados; libre de datos confidenciales */
 export interface PublicRoomState {
   roomCode: string;
   status: GameStatus;
@@ -121,11 +162,11 @@ export interface PublicRoomState {
   round: number;
   maxRounds: number;
   category: string | null;
-  /** Solo se expone en GAME_OVER. */
+  /** Solo se expone públicamente cuando la partida culmina (GAME_OVER) */
   secretWord: string | null;
   players: PublicPlayer[];
   timer: number;
-  /** Duración en segundos de cada fase (el cliente usa esto para el anillo). */
+  /** Duración en segundos de cada fase para que el cliente configure sus animaciones */
   phaseSeconds: Record<string, number>;
   ejectedPlayer: EjectedPlayer | null;
   winner: Winner | null;
@@ -133,8 +174,11 @@ export interface PublicRoomState {
   voteCounts: Record<string, number> | null;
 }
 
-/* Payloads cliente -> servidor */
+/* =========================================================================
+ * Payloads Cliente -> Servidor
+ * ========================================================================= */
 
+/** Payload enviado por un cliente para unirse o reconectarse a una sala */
 export interface JoinRoomPayload {
   roomCode: string;
   name: string;
@@ -143,31 +187,40 @@ export interface JoinRoomPayload {
   token?: string;
 }
 
+/** Payload enviado por un jugador para registrar su pista */
 export interface SubmitHintPayload {
   hint: string;
 }
 
+/** Payload enviado por un jugador para registrar su voto */
 export interface SubmitVotePayload {
   targetId: string;
 }
 
+/** Payload enviado por el impostor al intentar adivinar la palabra secreta */
 export interface SubmitImpostorGuessPayload {
   guessedWord: string;
 }
 
+/** Payload enviado por el host para agregar bots de prueba a la sala */
 export interface AddBotsPayload {
   count: number;
 }
 
-/* Payloads servidor -> cliente (eventos privados) */
+/* =========================================================================
+ * Payloads Servidor -> Cliente (Eventos privados dirigidos a un socket específico)
+ * ========================================================================= */
 
+/** Payload privado que informa al jugador su rol y, en caso de tripulante, la palabra secreta */
 export interface YourRolePayload {
   role: Role;
   category: string;
-  /** Solo para tripulantes; el impostor recibe null. */
+  /** Solo visible para tripulantes; null si el receptor es el impostor */
   word: string | null;
 }
 
+/** Opciones de palabras presentadas al impostor durante su última oportunidad */
 export interface GuessWordOptionsPayload {
   options: string[];
 }
+

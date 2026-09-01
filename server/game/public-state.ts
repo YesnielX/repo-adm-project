@@ -1,14 +1,25 @@
 /**
- * Estado público sanitizado de una sala: lo único que ve el cliente en los
- * broadcasts. Los secretos del juego nunca salen por aquí.
+ * Transformación y sanitización del estado público de la sala.
+ *
+ * Actúa como una barrera de seguridad crucial:
+ * - Evita la filtración de la palabra secreta a clientes (incluso inspeccionando el tráfico de red) antes de `GAME_OVER`.
+ * - Oculta las pistas de los jugadores durante la fase de redacción (`HINT_PHASE`) para evitar que se copien, exponiéndolas a partir de `SHOWCASE`.
+ * - Excluye tokens privados y roles confidenciales del broadcast público.
  */
 import type { Room, PublicRoomState } from "../types.ts";
 import { PHASE_SECONDS } from "../config.ts";
 
 /**
- * Estado público de la sala. Los secretos del juego nunca salen por aquí:
- * la palabra solo se revela en GAME_OVER, las pistas desde SHOWCASE, y el
- * rol/token viajan únicamente por eventos privados dirigidos por socket.id.
+ * Genera una versión sanitizada y segura del estado de la sala (`PublicRoomState`) apta para ser enviada por broadcast.
+ *
+ * Reglas de visibilidad:
+ * 1. **Pistas (`hint`)**: Se mantienen ocultas (null) durante `LOBBY`, `ROLE_REVEAL` y `HINT_PHASE`. Se hacen públicas únicamente a partir de `SHOWCASE` y fases subsiguientes.
+ * 2. **Palabra secreta (`secretWord`)**: Se mantiene oculta (null) durante toda la partida y solo se expone públicamente cuando la partida culmina en `GAME_OVER`.
+ * 3. **Categoría (`category`)**: Siempre visible para dar contexto a todos los jugadores.
+ * 4. **Tokens y roles individuales**: No se incluyen en esta estructura (viajan por socket privado).
+ *
+ * @param room Estado interno de la sala en memoria.
+ * @returns Objeto con el estado público sanitizado.
  */
 export function getSanitizedRoomState(room: Room): PublicRoomState {
   const hintsVisible =
@@ -49,3 +60,4 @@ export function getSanitizedRoomState(room: Room): PublicRoomState {
     voteCounts: room.voteCounts,
   };
 }
+

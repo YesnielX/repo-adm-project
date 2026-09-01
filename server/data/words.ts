@@ -1,14 +1,17 @@
 /**
- * Banco de palabras y pistas para bots.
+ * Banco de conceptos técnicos, palabras secretas y pistas contextuales para bots.
  *
- * Las palabras son conceptos de desarrollo de software y gestión de
- * proyectos; se muestran tal cual en el juego, por eso los acentos son
- * intencionales.
+ * Contiene más de 330 términos categorizados en 18 ramas de la ingeniería de software
+ * y la administración de proyectos. Las palabras preservan su ortografía y acentos
+ * intencionalmente para su despliegue visual en el proyector y dispositivos móviles.
  */
-
 import type { SecretWord, WordCategory } from '../types.ts';
 
+/**
+ * Diccionario maestro de palabras secretas agrupadas por categoría técnica.
+ */
 export const WORD_BANK: Record<WordCategory, string[]> = {
+
   'Metodologías Ágiles': [
     'Scrum',
     'Kanban',
@@ -720,8 +723,9 @@ export const SAMPLE_HINTS: Record<string, string[]> = {
 };
 
 /**
- * Pistas genéricas y ambiguas para el impostor: sirven para cualquier
- * categoría sin delatar que no conoce la palabra.
+ * Pistas genéricas y ambiguas para bots con rol de Impostor.
+ * Redactadas de forma amplia para encajar en cualquier concepto técnico
+ * sin delatar que no conocen la palabra secreta.
  */
 export const GENERIC_IMPOSTOR_HINTS: string[] = [
   'Es fundamental para el éxito del proyecto.',
@@ -733,7 +737,11 @@ export const GENERIC_IMPOSTOR_HINTS: string[] = [
   'Es clave en la gestión moderna de proyectos.'
 ];
 
-/** Devuelve una palabra aleatoria con su categoría. */
+/**
+ * Selecciona aleatoriamente una categoría y una palabra secreta del banco de palabras.
+ *
+ * @returns Objeto SecretWord con la categoría y la palabra seleccionada.
+ */
 export function getRandomWord(): SecretWord {
   const categories = Object.keys(WORD_BANK) as WordCategory[];
   const category = categories[Math.floor(Math.random() * categories.length)];
@@ -741,7 +749,13 @@ export function getRandomWord(): SecretWord {
   return { category, word: words[Math.floor(Math.random() * words.length)] };
 }
 
-/** Pista de bot: genérica si es impostor, realista de la palabra si es tripulante. */
+/**
+ * Genera una pista adecuada para un bot según su rol asignado.
+ *
+ * @param word Palabra secreta de la ronda.
+ * @param isImpostor True si el bot es impostor (recibe pista ambigua), False si es tripulante (recibe pista realista).
+ * @returns Texto de la pista a publicar.
+ */
 export function getBotHint(word: string, isImpostor: boolean): string {
   if (isImpostor) {
     return GENERIC_IMPOSTOR_HINTS[Math.floor(Math.random() * GENERIC_IMPOSTOR_HINTS.length)];
@@ -749,3 +763,4 @@ export function getBotHint(word: string, isImpostor: boolean): string {
   const hints = SAMPLE_HINTS[word] ?? ['Concepto clave de la disciplina', 'Herramienta de software importante'];
   return hints[Math.floor(Math.random() * hints.length)];
 }
+

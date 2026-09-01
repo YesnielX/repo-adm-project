@@ -1,7 +1,17 @@
 /**
- * Handlers de Socket.IO: toda la lógica de eventos cliente -> servidor
- * (create_room, add_bots, join_room, start_game, submit_hint, submit_vote,
- * submit_impostor_guess, force_next_phase, reset_game y disconnect).
+ * Manejadores de eventos de Socket.IO (Controlador de comunicación en tiempo real).
+ *
+ * Gestiona todas las interacciones entrantes de clientes (Host y Jugadores):
+ * - `create_room`: Creación de nuevas salas por la pantalla del Host.
+ * - `add_bots`: Adición de jugadores bot controlados por la máquina para pruebas.
+ * - `join_room`: Conexión y reconexión de jugadores móviles mediante token persistente.
+ * - `start_game`: Inicio de la partida y asignación inicial de roles.
+ * - `submit_hint`: Envío y sanitización de pistas de texto.
+ * - `submit_vote`: Registro de votos durante el debate.
+ * - `submit_impostor_guess`: Adivinanza de la palabra en la última oportunidad del impostor.
+ * - `force_next_phase`: Salto manual de fase accionado por el Host.
+ * - `reset_game`: Reinicio de la partida al lobby conservando los jugadores y puntos.
+ * - `disconnect`: Manejo de desconexiones y ventana de gracia para reconexión.
  */
 import { randomUUID } from "crypto";
 import { io } from "../core/io.ts";
@@ -40,11 +50,20 @@ import type {
 } from "../../shared/schemas.ts";
 import type { Player, Room } from "../types.ts";
 
-/** Registra todos los handlers de socket en la instancia compartida de io. */
+/**
+ * Registra todos los manejadores de eventos en el servidor de Socket.IO.
+ * Se invoca una única vez al arrancar el servidor.
+ */
 export function registerSocketHandlers(): void {
   io.on("connection", (socket) => {
     logger.info(`[socket] conectado: ${socket.id}`);
 
+    /**
+     * Evento: 'create_room'
+     * Emisor: Pantalla del Host / Proyector.
+     * Acción: Genera una nueva sala con código de 4 dígitos, la registra en memoria y
+     *         devuelve la IP local y candidatos de red para configurar el código QR.
+     */
     socket.on("create_room", () => {
       const roomCode = generateRoomCode();
       const room: Room = {
@@ -79,18 +98,27 @@ export function registerSocketHandlers(): void {
       logger.info(`[room] #${roomCode} creada por host ${socket.id}`);
     });
 
-    // Bots de práctica: agrega `count` bots con nombres únicos en la sala.
+    /**
+     * Evento: 'add_bots'
+     * Emisor: Host.
+     * Acción: Agrega `count` bots a la sala en estado LOBBY para poder probar el juego.
+     */
     socket.on("add_bots", (data?: Partial<AddBotsPayload>) => {
       const room = roomOfSocket(socket);
       if (!room || room.hostId !== socket.id || room.status !== "LOBBY") return;
 
-      // Sin `count` válido se agregan 3 bots por defecto.
+      // Validación con Zod (si no se especifica, por defecto agrega 3 bots)
       const parsed = addBotsSchema.safeParse(data);
       const count = parsed.success ? parsed.data.count : 3;
 
       createBotPlayers(count, room);
     });
 
+    /**
+     * Evento: 'join_room'
+     * Emisor: Jugador móvil.
+     * Acción: Une al jugador a una sala existente o restaura su sesión si presenta un `token` válido.
+     */
     socket.on("join_room", (data?: Partial<JoinRoomPayload>) => {
       const parsed = joinRoomSchema.safeParse(data);
       if (!parsed.success) return;
@@ -98,6 +126,7 @@ export function registerSocketHandlers(): void {
 
       const room = rooms.get(roomCode);
       if (!room) {
+
         socket.emit("error_message", "La sala no existe.");
         return;
       }
@@ -215,6 +244,12 @@ export function registerSocketHandlers(): void {
       });
     });
 
+    /**
+     * Evento: 'start_game'
+     * Emisor: Host.
+     * Acción: Inicia una nueva partida eligiendo una palabra secreta al azar y designando
+     *         al Impostor (el cual se mantendrá fijo durante las rondas de esta partida).
+     */
     socket.on("start_game", () => {
       const room = roomOfSocket(socket);
       if (!room || room.hostId !== socket.id) return;
@@ -246,6 +281,12 @@ export function registerSocketHandlers(): void {
       beginRoleReveal(room);
     });
 
+    /**
+     * Evento: 'submit_hint'
+     * Emisor: Jugador activo (Tripulante o Impostor).
+     * Acción: Almacena la pista del jugador (recortada a un máximo de 50 caracteres).
+     *         Si todos los jugadores vivos enviaron su pista, avanza inmediatamente a SHOWCASE.
+     */
     socket.on("submit_hint", (data?: Partial<SubmitHintPayload>) => {
       const parsed = submitHintSchema.safeParse(data);
       if (!parsed.success) return;
@@ -268,6 +309,12 @@ export function registerSocketHandlers(): void {
       }
     });
 
+    /**
+     * Evento: 'submit_vote'
+     * Emisor: Jugador activo.
+     * Acción: Registra el voto del jugador por un sospechoso o por omitir ('SKIP').
+     *         Si todos los jugadores vivos votaron, avanza inmediatamente al escrutinio (EJECTION).
+     */
     socket.on("submit_vote", (data?: Partial<SubmitVotePayload>) => {
       const parsed = submitVoteSchema.safeParse(data);
       if (!parsed.success) return;
@@ -302,6 +349,12 @@ export function registerSocketHandlers(): void {
       }
     });
 
+    /**
+     * Evento: 'submit_impostor_guess'
+     * Emisor: Impostor expulsado durante GUESS_PHASE.
+     * Acción: Procesa la opción seleccionada por el impostor. Si coincide con la palabra secreta,
+     *         el impostor roba la victoria (+150 pts); si no, ganan los tripulantes (+50 pts c/u).
+     */
     socket.on(
       "submit_impostor_guess",
       (data?: Partial<SubmitImpostorGuessPayload>) => {
@@ -337,6 +390,11 @@ export function registerSocketHandlers(): void {
       },
     );
 
+    /**
+     * Evento: 'force_next_phase'
+     * Emisor: Host.
+     * Acción: Salta la fase actual y avanza a la siguiente sin esperar al temporizador.
+     */
     socket.on("force_next_phase", () => {
       const room = roomOfSocket(socket);
       if (!room || room.hostId !== socket.id) return;
@@ -347,6 +405,11 @@ export function registerSocketHandlers(): void {
       forceNextPhase(room);
     });
 
+    /**
+     * Evento: 'reset_game'
+     * Emisor: Host.
+     * Acción: Regresa la sala al estado LOBBY conservando los jugadores y sus puntuaciones acumuladas.
+     */
     socket.on("reset_game", () => {
       const room = roomOfSocket(socket);
       if (!room || room.hostId !== socket.id) return;
@@ -373,6 +436,14 @@ export function registerSocketHandlers(): void {
       io.to(room.roomCode).emit("room_updated", getSanitizedRoomState(room));
     });
 
+    /**
+     * Evento: 'disconnect'
+     * Emisor: Desconexión del socket (cierre de pestaña, corte de Wi-Fi, etc.).
+     * Acción:
+     * - Si se desconecta el Host: la sala se cierra y se notifica a los jugadores.
+     * - Si se desconecta un jugador: se marca `connected: false` y se inicia un temporizador
+     *   de gracia de 45s (`DISCONNECT_GRACE_MS`) antes de eliminarlo definitivamente de la sala.
+     */
     socket.on("disconnect", () => {
       logger.info(`[socket] desconectado: ${socket.id}`);
 
@@ -416,3 +487,4 @@ export function registerSocketHandlers(): void {
     });
   });
 }
+
